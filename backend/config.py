@@ -1,0 +1,37 @@
+import os
+from typing import Optional
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+class Settings:
+    # Google AI Configuration
+    GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+    # Grafana Cloud Configuration
+    GRAFANA_URL: Optional[str] = os.getenv("GRAFANA_URL")
+    GRAFANA_SERVICE_ACCOUNT_TOKEN: Optional[str] = os.getenv("GRAFANA_SERVICE_ACCOUNT_TOKEN")
+    
+    # Grafana Cloud Prometheus Push Configuration
+    GRAFANA_PROMETHEUS_URL: Optional[str] = os.getenv("GRAFANA_PROMETHEUS_URL")
+    GRAFANA_PROMETHEUS_USER: Optional[str] = os.getenv("GRAFANA_PROMETHEUS_USER")
+    GRAFANA_PROMETHEUS_TOKEN: Optional[str] = os.getenv("GRAFANA_PROMETHEUS_TOKEN")
+
+    # Server Settings
+    PORT: int = int(os.getenv("PORT", "8080"))
+    HOST: str = os.getenv("HOST", "0.0.0.0")
+    SIMULATOR_TICK_SECONDS: float = float(os.getenv("SIMULATOR_TICK_SECONDS", "2.0"))
+
+    @property
+    def has_grafana_credentials(self) -> bool:
+        return bool(self.GRAFANA_URL and self.GRAFANA_SERVICE_ACCOUNT_TOKEN)
+
+    @property
+    def has_gemini_credentials(self) -> bool:
+        return bool(self.GEMINI_API_KEY)
+
+settings = Settings()

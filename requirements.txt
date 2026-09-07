@@ -1,0 +1,22 @@
+# Google AI Official SDKs (Hackathon hard constraint: only Google AI tooling)
+google-genai>=0.1.1
+google-adk>=0.1.0
+google-cloud-aiplatform>=1.70.0
+
+# Web Framework & API Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+
+# HTTP & MCP Protocol Client
+httpx>=0.27.0
+mcp>=1.0.0
+python-dotenv>=1.0.1
+
+# Observability & Metrics Export
+prometheus-client>=0.20.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

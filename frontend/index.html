@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Studio Ops Copilot | Agentic Cinema Infrastructure Intelligence</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-branding">
+        <div class="clapper-icon">🎬</div>
+        <div class="branding-text">
+          <h1>STUDIO OPS COPILOT</h1>
+          <span class="tagline">Cinema & Broadcast Telemetry Intelligence &bull; Grafana MCP + Google Gemini</span>
+        </div>
+      </div>
+      <div class="header-controls">
+        <div class="scenario-selector">
+          <label for="scenarioSelect">Simulated Incident Scenario:</label>
+          <select id="scenarioSelect">
+            <option value="render_farm_incident" selected>🔴 VFX Render Queue Backlog (OOM)</option>
+            <option value="livestream_incident">🔴 Premiere Livestream Drop (Bitrate)</option>
+            <option value="encoding_incident">🟡 4K Transcode Bottleneck</option>
+            <option value="all_nominal">🟢 All Pipelines Nominal</option>
+          </select>
+        </div>
+        <div class="badge-group">
+          <span class="tech-badge google-badge">
+            <span class="dot"></span> Google Gemini ADK
+          </span>
+          <span class="tech-badge grafana-badge">
+            <span class="dot"></span> Grafana Cloud MCP
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Real-time Production Telemetry Bar -->
+    <section class="telemetry-bar">
+      <!-- Render Farm Card -->
+      <div class="telemetry-card" id="cardRenderFarm">
+        <div class="card-header">
+          <span class="card-title">VFX RENDER FARM</span>
+          <span class="status-indicator" id="renderStatusDot"></span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-item">
+            <span class="metric-label">Queue Depth</span>
+            <span class="metric-value" id="valQueueDepth">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Active / Faulted</span>
+            <span class="metric-value" id="valNodes">-- / --</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">GPU VRAM</span>
+            <span class="metric-value" id="valVram">--%</span>
+          </div>
+        </div>
+        <div class="active-shot-tag" id="valActiveShot">Project: Chronos &bull; Sequence 14</div>
+      </div>
+
+      <!-- Livestream Card -->
+      <div class="telemetry-card" id="cardLivestream">
+        <div class="card-header">
+          <span class="card-title">PREMIERE LIVESTREAM</span>
+          <span class="status-indicator" id="liveStatusDot"></span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-item">
+            <span class="metric-label">Ingest Bitrate</span>
+            <span class="metric-value" id="valBitrate">-- kbps</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Dropped Frames</span>
+            <span class="metric-value" id="valDropped">--%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Viewers</span>
+            <span class="metric-value" id="valViewers">--</span>
+          </div>
+        </div>
+        <div class="active-shot-tag" id="valStreamChannel">Global Stream (HEVC 10-bit HDR)</div>
+      </div>
+
+      <!-- Transcode / Mastering Card -->
+      <div class="telemetry-card" id="cardTranscode">
+        <div class="card-header">
+          <span class="card-title">4K/8K MASTERING QUEUE</span>
+          <span class="status-indicator" id="transcodeStatusDot"></span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-item">
+            <span class="metric-label">Queue Jobs</span>
+            <span class="metric-value" id="valTranscodeQueue">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Workers</span>
+            <span class="metric-value" id="valTranscodeWorkers">--</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Error Rate</span>
+            <span class="metric-value" id="valTranscodeErrors">--%</span>
+          </div>
+        </div>
+        <div class="active-shot-tag">SMPTE DCP / ProRes 4444 XQ</div>
+      </div>
+    </section>
+
+    <!-- Active Alerts Ticker -->
+    <div class="alerts-ticker-bar" id="alertsTicker">
+      <span class="ticker-label">🚨 ACTIVE ALERT:</span>
+      <span class="ticker-content" id="alertTickerText">Monitoring studio production telemetry...</span>
+    </div>
+
+    <!-- Main Chat Workspace -->
+    <main class="chat-container">
+      <div class="messages-list" id="messagesList">
+        <!-- Initial Welcome Message -->
+        <div class="message-bubble agent-bubble">
+          <div class="bubble-header">
+            <span class="sender-name">🎬 Studio Ops Copilot</span>
+            <span class="model-tag">Gemini 2.5 Flash &bull; Grafana MCP</span>
+          </div>
+          <div class="bubble-content">
+            <p>Welcome to <strong>Studio Ops Copilot</strong>. I am your AI infrastructure intelligence partner for film, VFX, and live broadcast operations.</p>
+            <p>I continuously bridge raw <strong>Grafana Cloud</strong> telemetry (Prometheus metrics, Loki logs, Alertmanager notifications) and translate technical bottlenecks into actionable production intelligence for supervisors and technical directors.</p>
+            <p>Ask a question below or click any quick diagnostic button to begin.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggested Quick Queries -->
+      <div class="quick-queries-bar">
+        <span class="chips-label">Quick Diagnostics:</span>
+        <button class="query-chip" data-query="Why is the overnight render queue backed up?">
+          🔥 Why is the overnight render queue backed up?
+        </button>
+        <button class="query-chip" data-query="Is the premiere livestream healthy right now?">
+          📡 Is the premiere livestream healthy right now?
+        </button>
+        <button class="query-chip" data-query="List all active firing alerts across our studio pipelines">
+          🚨 List firing alerts
+        </button>
+        <button class="query-chip" data-query="Search available studio Grafana dashboards">
+          📊 Search studio dashboards
+        </button>
+      </div>
+
+      <!-- Input Bar -->
+      <div class="chat-input-area">
+        <form id="chatForm">
+          <input
+            type="text"
+            id="queryInput"
+            placeholder="Ask anything (e.g., 'Check GPU memory usage on render worker pool', 'Why is Sequence 14 delayed?')..."
+            autocomplete="off"
+            required
+          />
+          <button type="submit" id="sendBtn" class="send-button">
+            <span>Send</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>Agentic Cinema: The Blockbuster Hackathon &bull; Grafana Labs Track &bull; Powered by Google Cloud &amp; Grafana Cloud MCP</span>
+      <span class="metrics-endpoint"><a href="/metrics" target="_blank">Prometheus /metrics</a></span>
+    </footer>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
