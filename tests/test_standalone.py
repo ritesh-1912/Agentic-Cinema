@@ -58,22 +58,20 @@ class TestStudioOps(unittest.TestCase):
 
     def test_copilot_chat(self):
         copilot = StudioOpsCopilot()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         
         # Test Render Farm question
-        resp = loop.run_until_complete(copilot.chat("Why is the overnight render queue backed up?"))
+        resp = asyncio.run(copilot.chat("Why is the overnight render queue backed up?"))
         self.assertIn("answer", resp)
         self.assertIn("PRODUCTION IMPACT STATUS", resp["answer"])
         self.assertGreater(len(resp["tools_executed"]), 0)
 
         # Test Livestream question
-        resp2 = loop.run_until_complete(copilot.chat("Is the premiere livestream healthy right now?"))
+        resp2 = asyncio.run(copilot.chat("Is the premiere livestream healthy right now?"))
         self.assertIn("answer", resp2)
         self.assertTrue("livestream" in resp2["answer"].lower() or "stream" in resp2["answer"].lower())
 
         # Test Alerts question
-        resp3 = loop.run_until_complete(copilot.chat("List all active alerts"))
+        resp3 = asyncio.run(copilot.chat("List all active alerts"))
         self.assertIn("answer", resp3)
         self.assertTrue("alert" in resp3["answer"].lower())
 

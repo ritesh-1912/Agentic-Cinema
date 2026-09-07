@@ -158,11 +158,11 @@ class StudioOpsCopilot:
 
             if dropped > 1.0 or bitrate < 10000:
                 severity = "🔴 CRITICAL"
-                impact_text = f"Live premiere broadcast is experiencing **severe viewer degradation** with **{viewers:,} live attendees** currently affected."
-                action_text = "1. **Failover Ingest:** Trigger immediate hot failover to Secondary Backup Ingest Path (`SRT-B` on us-east-1).\n2. **CDN Purge:** Force origin refresh on edge nodes experiencing retransmission spikes.\n3. **Audio Resync:** Reset ingest packager timecode lock to correct {drift:.1f}ms lip-sync drift."
+                impact_text = f"Live premiere livestream broadcast is experiencing **severe viewer degradation** with **{viewers:,} live attendees** currently affected."
+                action_text = f"1. **Failover Ingest:** Trigger immediate hot failover to Secondary Backup Ingest Path (`SRT-B` on us-east-1).\n2. **CDN Purge:** Force origin refresh on edge nodes experiencing retransmission spikes.\n3. **Audio Resync:** Reset ingest packager timecode lock to correct {drift:.1f}ms lip-sync drift."
             else:
                 severity = "🟢 NOMINAL"
-                impact_text = f"Global premiere livestream is **healthy and broadcasting smoothly** to **{viewers:,} concurrent viewers**."
+                impact_text = f"Global premiere livestream broadcast is **healthy and broadcasting smoothly** to **{viewers:,} concurrent viewers**."
                 action_text = "1. Continue continuous monitoring through the global release window.\n2. Ingest telemetry remains within nominal cinema broadcast tolerances."
 
             brief = f"""### 🎬 PRODUCTION IMPACT STATUS: {severity}
