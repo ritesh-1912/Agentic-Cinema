@@ -1,11 +1,12 @@
 # Devpost Project Submission: Studio Ops Copilot
 **Track:** Grafana Labs Track & Google Cloud Track  
 **Hackathon:** Agentic Cinema: The Blockbuster Hackathon  
+**Repository:** https://github.com/ritesh-1912/Agentic-Cinema  
 
 ---
 
 ## 📽️ Elevator Pitch
-**Studio Ops Copilot** is a conversational AI infrastructure copilot for film and TV production crews. It bridges raw Grafana Cloud telemetry with human operations, using Google Gemini (via Google ADK and `google-genai`) and the official Grafana MCP server to translate complex metrics, logs, and alerts into plain-English Studio Incident Briefs with immediate next actions.
+**Studio Ops Copilot** is a conversational AI infrastructure copilot for film and TV production crews. It bridges raw Grafana Cloud telemetry with human operations, using Google Gemini (via Google ADK and `google-genai`) and the official Grafana MCP server (`grafana/mcp-grafana`) to translate complex metrics, logs, and alerts into plain-English Studio Incident Briefs with immediate next actions.
 
 ---
 
@@ -15,7 +16,7 @@ Film and television production is governed by unforgiving delivery deadlines: mo
 - High-throughput transcode clusters crunching 4K/8K ProRes 4444 into AV1 and SMPTE DCPs.
 - Low-latency live broadcast ingest paths streaming global premiere events.
 
-These systems produce thousands of metrics, logs, and alerts in Grafana Cloud every minute. But when an overnight render queue backs up at 3:00 AM or a livestream premiere drops frames, the people who need to know first—**post-production supervisors, VFX coordinators, and live broadcast leads**—are not Site Reliability Engineers. Staring at raw PromQL queries and time-series panels under immense deadline pressure is overwhelming.
+These systems produce thousands of metrics, logs, and alerts in Grafana Cloud every minute. But when an overnight render queue backs up at 3:00 AM or a premiere livestream drops frames, the people who need to know first—**post-production supervisors, VFX coordinators, and live broadcast leads**—are not Site Reliability Engineers. Staring at raw PromQL queries and time-series panels under immense deadline pressure is overwhelming.
 
 We built **Studio Ops Copilot** to eliminate this bottleneck: giving creative and operational crews a conversational, natural-language interface directly into their production infrastructure.
 
@@ -31,7 +32,7 @@ We built **Studio Ops Copilot** to eliminate this bottleneck: giving creative an
    - *"List all firing alerts across our pipelines."*
 
 2. **Real-time Grafana MCP Integration:**
-   The agent actively calls the official **Grafana Model Context Protocol (MCP)** server (`grafana/mcp-grafana`) to execute:
+   The agent actively connects to the official **Grafana Model Context Protocol (MCP)** server (`grafana/mcp-grafana`) using the Python `mcp` SDK (`ClientSession` over stdio/SSE) to execute:
    - `query_prometheus`: PromQL queries for queue depth, GPU VRAM usage, and frame render duration.
    - `query_loki`: LogQL queries to isolate CUDA OOM crashes, disk exhaustion, and video packet loss.
    - `list_alerts`: Instant inspection of firing Alertmanager rules.
@@ -57,13 +58,14 @@ We built **Studio Ops Copilot** to eliminate this bottleneck: giving creative an
   - **Google Gemini 2.5 Flash** as the core cognitive engine.
   - **Google Agent Development Kit (`google-adk`)** and the official **Google GenAI SDK (`google-genai`)** for autonomous tool calling and structured function execution.
   - Custom system persona tailored specifically to cinema technical operations and post-production workflows.
+  - **Live Runtime Environment:** The hosted deployment runs live Google Gemini model inference alongside live Grafana Cloud MCP tool executions.
 - **Observability Layer:**
-  - Official **Grafana MCP Server (`grafana/mcp-grafana`)** interfacing with Grafana Cloud.
-  - High-fidelity fallback MCP provider ensuring instant zero-friction demonstrations for judges.
+  - Official **Grafana MCP Server (`grafana/mcp-grafana`)** using the Python `mcp` SDK (`ClientSession`) supporting both `stdio` and `sse` transports with dynamic tool discovery via `list_tools()`.
+  - High-fidelity fallback MCP provider ensuring instant zero-friction demonstrations for local offline testing.
   - Standard Prometheus `/metrics` exposition endpoint for scraping by Grafana Cloud Agent / Alloy.
-- **Backend & Web Application:**
+- **Backend & Control Room Web Application:**
   - **FastAPI** backend in Python providing conversational streaming, scenario state toggling, and telemetry endpoints.
-  - **Modern Cinematic Dark-Mode UI** featuring active pipeline telemetry gauges, incident status pills, quick diagnostic chips, and Markdown response rendering.
+  - **Ops Room Control Center UI** designed specifically for engineers under pressure: 3-column command center with pipeline rail, incident brief feed, and ticking monospace telemetry strip.
 - **Deployment & Cloud Infrastructure:**
   - Fully containerized with **Docker** and configured for **Google Cloud Run** via `cloudbuild.yaml` and `deploy.sh`.
 

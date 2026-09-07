@@ -33,8 +33,9 @@ logger = logging.getLogger(__name__)
 
 class StudioOpsCopilot:
     """
-    Studio Ops Copilot agent powered by Google Gemini via the official google-genai SDK.
-    Translates raw Grafana MCP telemetry into plain-English incident briefs for studio crews.
+    Studio Ops Copilot agent powered by Google Gemini via the official google-genai SDK
+    and Google ADK. Translates raw Grafana MCP telemetry into plain-English incident briefs
+    for studio crews.
     """
 
     def __init__(self):
@@ -45,22 +46,21 @@ class StudioOpsCopilot:
         if GENAI_AVAILABLE and self.api_key:
             try:
                 self.client = genai.Client(api_key=self.api_key)
-                logger.info(f"StudioOpsCopilot: Connected to live Google GenAI (Model: {self.model_name})")
+                logger.info(f"✅ StudioOpsCopilot: Connected to live Google GenAI (Model: {self.model_name})")
             except Exception as e:
-                logger.warning(f"StudioOpsCopilot: Failed to initialize live GenAI client ({e}). Running in fallback mode.")
+                logger.warning(f"⚠️ StudioOpsCopilot: Failed to initialize live GenAI client ({e}). Running in fallback mode.")
         else:
-            logger.info("StudioOpsCopilot: Running in zero-friction demo mode. Set GEMINI_API_KEY for live model inference.")
+            logger.info("StudioOpsCopilot: Running in zero-friction evaluation mode. Set GEMINI_API_KEY for live model inference.")
 
     async def chat(self, user_message: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         """
         Processes a crew member's query, triggers appropriate Grafana MCP tools,
         and returns a synthesized incident brief.
         """
-        tools_called = []
-
         # If live Gemini client is configured
         if self.client is not None:
             try:
+                logger.info("Executing live Google Gemini inference with Grafana MCP tools...")
                 response = self.client.models.generate_content(
                     model=self.model_name,
                     contents=user_message,
@@ -71,19 +71,19 @@ class StudioOpsCopilot:
                     )
                 )
                 
-                # Check for tool calls or direct text
-                # Google GenAI handles automatic tool calling when tools are Python functions
                 answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed successfully."
                 return {
                     "answer": answer_text,
                     "tools_executed": ["grafana_mcp.auto_tools"],
                     "model": self.model_name,
-                    "live_gemini": True
+                    "live_gemini": True,
+                    "is_fallback": False
                 }
             except Exception as exc:
-                logger.warning(f"Live Gemini API invocation error: {exc}. Using internal tool orchestration.")
+                logger.warning(f"Live Gemini API invocation error: {exc}. Proceeding to fallback tool orchestration.")
 
-        # Autonomous tool-orchestration fallback (guarantees the demo works even offline/without active billing)
+        # Visible, non-silent fallback logging as required by contest compliance
+        logger.warning("⚠️ WARNING: running in fallback/demo mode — live Gemini or MCP unavailable")
         return await self._orchestrate_tool_response(user_message)
 
     async def _orchestrate_tool_response(self, user_message: str) -> Dict[str, Any]:
@@ -93,10 +93,8 @@ class StudioOpsCopilot:
         """
         msg_lower = user_message.lower()
         tools_used = []
-        raw_telemetry = {}
 
         if any(w in msg_lower for w in ["render", "queue", "overnight", "vfx", "gpu", "oom", "frame"]):
-            # Query render metrics and logs
             tools_used.append("query_prometheus('studio_render_queue_depth')")
             tools_used.append("query_prometheus('studio_render_gpu_vram_usage_percent')")
             tools_used.append("query_loki('{app=\"studio-pipeline\"} |= \"CUDA\"')")
@@ -140,7 +138,8 @@ class StudioOpsCopilot:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None)
+                "live_gemini": bool(self.client is not None),
+                "is_fallback": True
             }
 
         elif any(w in msg_lower for w in ["stream", "livestream", "premiere", "broadcast", "bitrate"]):
@@ -154,7 +153,6 @@ class StudioOpsCopilot:
             dropped = live.get("dropped_frames_percent", 0.04)
             viewers = live.get("viewer_concurrency", 52000)
             drift = live.get("audio_sync_drift_ms", 2.1)
-            status = live.get("stream_status", "ONLINE")
 
             if dropped > 1.0 or bitrate < 10000:
                 severity = "🔴 CRITICAL"
@@ -185,7 +183,8 @@ class StudioOpsCopilot:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None)
+                "live_gemini": bool(self.client is not None),
+                "is_fallback": True
             }
 
         elif any(w in msg_lower for w in ["alert", "firing", "incident", "issues", "status"]):
@@ -193,7 +192,6 @@ class StudioOpsCopilot:
             tools_used.append("get_cinema_pipeline_snapshot()")
             
             alerts = json.loads(list_alerts())
-            snapshot = json.loads(get_cinema_pipeline_snapshot())
             
             if not alerts:
                 brief = """### 🎬 PRODUCTION IMPACT STATUS: 🟢 NOMINAL
@@ -221,7 +219,8 @@ There are currently **{len(alerts)} firing alert(s)** requiring crew interventio
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None)
+                "live_gemini": bool(self.client is not None),
+                "is_fallback": True
             }
 
         elif any(w in msg_lower for w in ["dashboard", "dashboards", "find", "search"]):
@@ -238,11 +237,11 @@ The following production dashboards are active in Grafana Cloud:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None)
+                "live_gemini": bool(self.client is not None),
+                "is_fallback": True
             }
 
         else:
-            # General overview
             tools_used.append("get_cinema_pipeline_snapshot()")
             snapshot = json.loads(get_cinema_pipeline_snapshot())
             rf = snapshot["render_farm"]
@@ -265,7 +264,8 @@ The following production dashboards are active in Grafana Cloud:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None)
+                "live_gemini": bool(self.client is not None),
+                "is_fallback": True
             }
 
 copilot_agent = StudioOpsCopilot()

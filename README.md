@@ -11,9 +11,9 @@
 
 ## 💡 The Concept
 
-Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, SMPTE DCP mastering, live premiere broadcast streams) generate non-stop infrastructure telemetry. When an overnight render queue backs up before an executive screening, or a premiere livestream drops frames, the people who need to know first—**post-production supervisors, VFX coordinators, and live broadcast directors**—are the last to find out because they cannot decipher complex raw Grafana dashboards under intense deadline pressure.
+Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, SMPTE DCP mastering, live premiere broadcast streams) generate continuous infrastructure telemetry. When an overnight render queue backs up before an executive screening, or a premiere livestream drops frames, the people who need to know first—**post-production supervisors, VFX coordinators, and live broadcast directors**—are the last to find out because they cannot decipher complex raw Grafana dashboards under intense deadline pressure.
 
-**Studio Ops Copilot** is a conversational AI agent that bridges raw **Grafana Cloud** telemetry and human studio operations. Powered by **Google Gemini** (via `google-genai` and `google-adk`) and the official **Grafana Model Context Protocol (MCP) server**, it translates technical bottlenecks (CUDA OOM thrashing, SRT bitrate drops, chunk boundary errors) into plain-English **Studio Incident Briefs** with real production impact and immediate next steps.
+**Studio Ops Copilot** is a conversational AI agent that bridges raw **Grafana Cloud** telemetry and human studio operations. Powered by **Google Gemini** (via `google-genai` and `google-adk`) and the official **Grafana Model Context Protocol (MCP) server (`grafana/mcp-grafana`)**, it translates technical bottlenecks (CUDA OOM thrashing, SRT bitrate drops, chunk boundary errors) into plain-English **Studio Incident Briefs** with real production impact and immediate next steps.
 
 ---
 
@@ -34,8 +34,10 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
  │  └───────────────────────────┬───────────────────────────┘  │
  │                              │ Tool Execution               │
  │  ┌───────────────────────────▼───────────────────────────┐  │
- │  │                Grafana MCP Client Bridge              │  │
- │  │   - Stdio MCP client to `grafana/mcp-grafana` Docker  │  │
+ │  │            Real Grafana MCP Client Bridge             │  │
+ │  │   - Python `mcp` SDK (ClientSession, stdio & sse)     │  │
+ │  │   - Connects to official `grafana/mcp-grafana`        │  │
+ │  │   - Dynamic list_tools() & schema discovery           │  │
  │  │   - Tools: query_prometheus, query_loki,              │  │
  │  │            search_dashboards, list_alerts             │  │
  │  └───────────────────────────┬───────────────────────────┘  │
@@ -59,8 +61,8 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
 | :--- | :--- | :--- |
 | **Google AI Tooling Only** | Powered exclusively by Gemini models using `google-genai` and `google-adk`. Zero third-party LLMs or non-Google agent frameworks. | Imported in [`backend/agent/copilot.py`](backend/agent/copilot.py) |
 | **Approved Google Packages** | Actively imports and uses `google-genai`, `google-adk`, `google-cloud-aiplatform`. | Declared in [`requirements.txt`](requirements.txt) |
-| **Live Grafana MCP Integration**| Connects to official `grafana/mcp-grafana` MCP server to query PromQL metrics, Loki logs, dashboards, and alerts. | Implemented in [`backend/mcp/client.py`](backend/mcp/client.py) |
-| **Web Platform** | High-performance FastAPI server serving a responsive cinema dark-mode interface. | [`frontend/index.html`](frontend/index.html) |
+| **Live Grafana MCP Integration**| Connects to official `grafana/mcp-grafana` MCP server via the official Python `mcp` SDK using `ClientSession` over stdio / SSE transport. Discovers tools dynamically via `list_tools()` and calls them via `call_tool()`. | Implemented in [`backend/mcp/client.py`](backend/mcp/client.py) |
+| **Web Platform** | Command-center control room UI designed for ops under pressure, served by FastAPI. | [`frontend/index.html`](frontend/index.html) |
 | **Public OSS License** | Standard MIT License in repo root. | [`LICENSE`](LICENSE) |
 | **Deployment** | Dockerfile and Google Cloud Run deployment scripts ready. | [`Dockerfile`](Dockerfile), [`cloudbuild.yaml`](cloudbuild.yaml) |
 
@@ -92,12 +94,12 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/your-username/studio-ops-copilot.git
-cd studio-ops-copilot
+git clone https://github.com/ritesh-1912/Agentic-Cinema.git
+cd Agentic-Cinema
 
 # 2. Set up virtual environment
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
 # 3. Configure environment (optional - demo mode runs without keys)
@@ -137,16 +139,9 @@ Run the automated test suite:
 # Run standalone unit tests
 python3 -m unittest tests/test_standalone.py
 
-# Run pytest suite
-pytest tests/
+# Run full pytest suite including real MCP integration test
+pytest -v tests/
 ```
-
----
-
-## 🎥 Demo Video & Devpost Materials
-
-- Devpost Submission Writeup: [`SUBMISSION_DESCRIPTION.md`](SUBMISSION_DESCRIPTION.md)
-- 3-Minute Video Walkthrough Script: [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md)
 
 ---
 
