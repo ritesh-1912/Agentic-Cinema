@@ -21,14 +21,12 @@ class TestStudioOps(unittest.TestCase):
         self.assertEqual(snapshot["render_farm"]["total_nodes"], 64)
 
     def test_scenarios(self):
-        # Render farm incident
         self.sim.set_scenario("render_farm_incident")
         snap = self.sim.get_snapshot()
         self.assertEqual(snap["scenario"], "render_farm_incident")
         self.assertGreater(snap["render_farm"]["queue_depth"], 1000)
         self.assertGreaterEqual(len(snap["alerts"]), 1)
 
-        # Livestream incident
         self.sim.set_scenario("livestream_incident")
         snap_live = self.sim.get_snapshot()
         self.assertEqual(snap_live["scenario"], "livestream_incident")
@@ -47,13 +45,13 @@ class TestStudioOps(unittest.TestCase):
         self.assertGreaterEqual(len(dashboards), 1)
 
     def test_agent_tools(self):
-        q_res = query_prometheus("studio_render_queue_depth")
+        q_res = asyncio.run(query_prometheus("studio_render_queue_depth"))
         self.assertIn("studio_render_queue_depth", q_res)
 
-        alerts_json = list_alerts()
+        alerts_json = asyncio.run(list_alerts())
         self.assertTrue(isinstance(alerts_json, str))
 
-        snap_json = get_cinema_pipeline_snapshot()
+        snap_json = asyncio.run(get_cinema_pipeline_snapshot())
         self.assertIn("render_farm", snap_json)
 
     def test_copilot_chat(self):

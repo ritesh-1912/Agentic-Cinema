@@ -35,9 +35,10 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
  │                              │ Tool Execution               │
  │  ┌───────────────────────────▼───────────────────────────┐  │
  │  │            Real Grafana MCP Client Bridge             │  │
- │  │   - Python `mcp` SDK (ClientSession, stdio & sse)     │  │
- │  │   - Connects to official `grafana/mcp-grafana`        │  │
- │  │   - Dynamic list_tools() & schema discovery           │  │
+ │  │   - Real MCP ClientSession (stdio transport) to       │  │
+ │  │     `grafana/mcp-grafana`                             │  │
+ │  │   - Tools discovered dynamically via                  │  │
+ │  │     session.list_tools() at startup                   │  │
  │  │   - Tools: query_prometheus, query_loki,              │  │
  │  │            search_dashboards, list_alerts             │  │
  │  └───────────────────────────┬───────────────────────────┘  │
@@ -61,7 +62,7 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
 | :--- | :--- | :--- |
 | **Google AI Tooling Only** | Powered exclusively by Gemini models using `google-genai` and `google-adk`. Zero third-party LLMs or non-Google agent frameworks. | Imported in [`backend/agent/copilot.py`](backend/agent/copilot.py) |
 | **Approved Google Packages** | Actively imports and uses `google-genai`, `google-adk`, `google-cloud-aiplatform`. | Declared in [`requirements.txt`](requirements.txt) |
-| **Live Grafana MCP Integration**| Connects to official `grafana/mcp-grafana` MCP server via the official Python `mcp` SDK using `ClientSession` over stdio / SSE transport. Discovers tools dynamically via `list_tools()` and calls them via `call_tool()`. | Implemented in [`backend/mcp/client.py`](backend/mcp/client.py) |
+| **Live Grafana MCP Integration**| Connects to official `grafana/mcp-grafana` MCP server via the official Python `mcp` SDK using `ClientSession` over stdio transport. Discovers tools dynamically via `list_tools()` and calls them via `call_tool()`. | Implemented in [`backend/mcp/client.py`](backend/mcp/client.py) |
 | **Web Platform** | Command-center control room UI designed for ops under pressure, served by FastAPI. | [`frontend/index.html`](frontend/index.html) |
 | **Public OSS License** | Standard MIT License in repo root. | [`LICENSE`](LICENSE) |
 | **Deployment** | Dockerfile and Google Cloud Run deployment scripts ready. | [`Dockerfile`](Dockerfile), [`cloudbuild.yaml`](cloudbuild.yaml) |
@@ -79,9 +80,9 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
    - **Premiere Livestream**: SRT/RTMP ingest bitrate, dropped frame rate, viewer concurrency, audio sync drift.
    - **4K/8K Transcoder**: ProRes 4444 XQ to AV1/SMPTE DCP queue depth and error rates.
 3. **Interactive Incident Switcher**: Live dropdown to switch between active production incidents:
-   - 🔴 *VFX Render Queue Backlog (CUDA OOM)*
-   - 🔴 *Premiere Livestream Drop (Bitrate & Dropped Frames)*
-   - 🟡 *4K Transcode Bottleneck*
+   - 🔴 *VFX Render Backlog (OOM)*
+   - 🔴 *Premiere Livestream Drop*
+   - 🟡 *Transcode Bottleneck*
    - 🟢 *All Pipelines Nominal*
 4. **Prometheus Exposition Endpoint**: Exposes `/metrics` in standard Prometheus text format for scraping by Grafana Cloud Agent, Alloy, or local Prometheus.
 5. **Zero-Friction Evaluation Mode**: Runs smoothly with full tool-orchestration out of the box even without cloud keys, and seamlessly connects to live Grafana Cloud and Gemini with API keys.

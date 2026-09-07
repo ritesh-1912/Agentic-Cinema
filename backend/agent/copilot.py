@@ -21,6 +21,7 @@ from backend.config import settings
 from backend.agent.prompts import STUDIO_OPS_SYSTEM_INSTRUCTION
 from backend.agent.tools import (
     STUDIO_TOOLS,
+    TOOL_NAME_TO_FUNCTION,
     query_prometheus,
     query_loki,
     list_alerts,
@@ -30,6 +31,7 @@ from backend.agent.tools import (
 from backend.mcp.client import grafana_mcp
 
 logger = logging.getLogger(__name__)
+
 
 class StudioOpsCopilot:
     """
@@ -57,7 +59,6 @@ class StudioOpsCopilot:
         Processes a crew member's query, triggers appropriate Grafana MCP tools,
         and returns a synthesized incident brief.
         """
-        # If live Gemini client is configured
         if self.client is not None:
             try:
                 logger.info("Executing live Google Gemini inference with Grafana MCP tools...")
@@ -68,28 +69,44 @@ class StudioOpsCopilot:
                         system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
                         tools=STUDIO_TOOLS,
                         temperature=0.2,
-                    )
+                    ),
                 )
-                
-                answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed successfully."
+
+                # Check whether Gemini asked to call a tool
+                function_calls = getattr(response, "function_calls", None)
+                tools_executed = []
+
+                if function_calls:
+                    for call in function_calls:
+                        tool_fn = TOOL_NAME_TO_FUNCTION.get(call.name)
+                        if tool_fn is not None:
+                            tool_args = call.args if hasattr(call, "args") and call.args else {}
+                            if isinstance(tool_args, dict):
+                                tool_result = await tool_fn(**tool_args)
+                            else:
+                                tool_result = await tool_fn()
+                            tools_executed.append(f"{call.name}({tool_args}) [via Grafana MCP]")
+                            logger.info(f"Live Gemini invoked MCP tool: {call.name}({tool_args})")
+
+                answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
+
                 return {
                     "answer": answer_text,
-                    "tools_executed": ["grafana_mcp.auto_tools"],
+                    "tools_executed": tools_executed or ["grafana_mcp (no tool call needed)"],
                     "model": self.model_name,
                     "live_gemini": True,
                     "is_fallback": False
                 }
             except Exception as exc:
-                logger.warning(f"Live Gemini API invocation error: {exc}. Proceeding to fallback tool orchestration.")
+                logger.warning(f"Live Gemini API invocation error: {exc}. Using internal tool orchestration.")
 
-        # Visible, non-silent fallback logging as required by contest compliance
-        logger.warning("⚠️ WARNING: running in fallback/demo mode — live Gemini or MCP unavailable")
+        logger.warning("Running in FALLBACK mode — live Gemini unavailable, using scripted orchestration.")
         return await self._orchestrate_tool_response(user_message)
 
     async def _orchestrate_tool_response(self, user_message: str) -> Dict[str, Any]:
         """
         Autonomous tool execution that inspects user intent, triggers the corresponding
-        Grafana MCP tools, and synthesizes an authoritative Studio Incident Brief.
+        Grafana MCP tools via await, and synthesizes an authoritative Studio Incident Brief.
         """
         msg_lower = user_message.lower()
         tools_used = []
@@ -100,11 +117,11 @@ class StudioOpsCopilot:
             tools_used.append("query_loki('{app=\"studio-pipeline\"} |= \"CUDA\"')")
             tools_used.append("list_alerts()")
             
-            queue_data = json.loads(query_prometheus("studio_render_queue_depth"))
-            vram_data = json.loads(query_prometheus("studio_render_gpu_vram_usage_percent"))
-            logs_data = json.loads(query_loki('{app="studio-pipeline"} |= "CUDA"'))
-            alerts_data = json.loads(list_alerts())
-            snapshot_data = json.loads(get_cinema_pipeline_snapshot())
+            queue_data = json.loads(await query_prometheus("studio_render_queue_depth"))
+            vram_data = json.loads(await query_prometheus("studio_render_gpu_vram_usage_percent"))
+            logs_data = json.loads(await query_loki('{app="studio-pipeline"} |= "CUDA"'))
+            alerts_data = json.loads(await list_alerts())
+            snapshot_data = json.loads(await get_cinema_pipeline_snapshot())
             
             rf = snapshot_data.get("render_farm", {})
             q_depth = rf.get("queue_depth", 1428)
@@ -147,7 +164,7 @@ class StudioOpsCopilot:
             tools_used.append("query_prometheus('studio_livestream_dropped_frames_rate')")
             tools_used.append("query_loki('{app=\"studio-pipeline\"} |= \"stream\"')")
             
-            snapshot_data = json.loads(get_cinema_pipeline_snapshot())
+            snapshot_data = json.loads(await get_cinema_pipeline_snapshot())
             live = snapshot_data.get("livestream_premiere", {})
             bitrate = live.get("ingest_bitrate_kbps", 15200)
             dropped = live.get("dropped_frames_percent", 0.04)
@@ -191,7 +208,7 @@ class StudioOpsCopilot:
             tools_used.append("list_alerts()")
             tools_used.append("get_cinema_pipeline_snapshot()")
             
-            alerts = json.loads(list_alerts())
+            alerts = json.loads(await list_alerts())
             
             if not alerts:
                 brief = """### 🎬 PRODUCTION IMPACT STATUS: 🟢 NOMINAL
@@ -225,7 +242,7 @@ There are currently **{len(alerts)} firing alert(s)** requiring crew interventio
 
         elif any(w in msg_lower for w in ["dashboard", "dashboards", "find", "search"]):
             tools_used.append("search_dashboards()")
-            dashboards = json.loads(search_dashboards())
+            dashboards = json.loads(await search_dashboards())
             items = "\n".join([f"- **{d['title']}** (UID: `{d['uid']}`) — Tags: {', '.join(d.get('tags', []))}" for d in dashboards])
             brief = f"""### 📊 REGISTERED STUDIO GRAFANA DASHBOARDS:
 The following production dashboards are active in Grafana Cloud:
@@ -243,7 +260,7 @@ The following production dashboards are active in Grafana Cloud:
 
         else:
             tools_used.append("get_cinema_pipeline_snapshot()")
-            snapshot = json.loads(get_cinema_pipeline_snapshot())
+            snapshot = json.loads(await get_cinema_pipeline_snapshot())
             rf = snapshot["render_farm"]
             live = snapshot["livestream_premiere"]
             enc = snapshot["encoding_pipeline"]

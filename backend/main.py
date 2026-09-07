@@ -29,7 +29,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"Gemini API Key: {'[Configured]' if settings.has_gemini_credentials else '[Demo Mode]'}")
     logger.info(f"Grafana URL: {settings.GRAFANA_URL or '[Synthetic MCP Mode]'}")
     logger.info("==================================================")
+    
+    # Startup: open the MCP session once, reuse it for the app's lifetime
+    await grafana_mcp.connect()
     yield
+    # Shutdown: close the MCP session cleanly
+    await grafana_mcp.close()
     logger.info("Shutting down Studio Ops Copilot.")
 
 app = FastAPI(

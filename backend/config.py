@@ -16,12 +16,9 @@ class Settings:
     GRAFANA_URL: Optional[str] = os.getenv("GRAFANA_URL")
     GRAFANA_SERVICE_ACCOUNT_TOKEN: Optional[str] = os.getenv("GRAFANA_SERVICE_ACCOUNT_TOKEN")
     
-    # MCP Transport Configuration: 'stdio' (Docker/binary subprocess) or 'sse' (Hosted endpoint)
-    GRAFANA_MCP_TRANSPORT: str = os.getenv("GRAFANA_MCP_TRANSPORT", "stdio").lower()
-    GRAFANA_MCP_COMMAND: str = os.getenv("GRAFANA_MCP_COMMAND", "docker")
-    GRAFANA_MCP_ARGS: Optional[str] = os.getenv("GRAFANA_MCP_ARGS")
-    GRAFANA_MCP_SSE_URL: Optional[str] = os.getenv("GRAFANA_MCP_SSE_URL")
-    GRAFANA_MCP_TIMEOUT: float = float(os.getenv("GRAFANA_MCP_TIMEOUT", "15.0"))
+    # Grafana MCP server settings
+    GRAFANA_MCP_COMMAND: str = os.getenv("GRAFANA_MCP_COMMAND", "")
+    GRAFANA_MCP_ARGS: str = os.getenv("GRAFANA_MCP_ARGS", "")
 
     # Grafana Cloud Prometheus Push Configuration
     GRAFANA_PROMETHEUS_URL: Optional[str] = os.getenv("GRAFANA_PROMETHEUS_URL")
@@ -35,7 +32,7 @@ class Settings:
 
     @property
     def has_grafana_credentials(self) -> bool:
-        return bool((self.GRAFANA_URL and self.GRAFANA_SERVICE_ACCOUNT_TOKEN) or self.GRAFANA_MCP_SSE_URL)
+        return bool(self.GRAFANA_URL and self.GRAFANA_SERVICE_ACCOUNT_TOKEN)
 
     @property
     def has_gemini_credentials(self) -> bool:

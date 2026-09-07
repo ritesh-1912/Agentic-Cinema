@@ -1,8 +1,9 @@
 import json
 from typing import Dict, Any, List
 from backend.mcp.client import grafana_mcp
+from backend.simulator.telemetry import telemetry_simulator
 
-def query_prometheus(query: str) -> str:
+async def query_prometheus(query: str) -> str:
     """
     Executes a PromQL query via the Grafana MCP server to retrieve metrics.
     
@@ -12,11 +13,11 @@ def query_prometheus(query: str) -> str:
     Returns:
         JSON string containing the metric query results from Grafana.
     """
-    res = grafana_mcp.query_prometheus_sync(query)
-    return json.dumps(res, indent=2)
+    result = await grafana_mcp.query_prometheus(query)
+    return json.dumps(result, indent=2)
 
 
-def query_loki(query: str) -> str:
+async def query_loki(query: str) -> str:
     """
     Executes a LogQL query via the Grafana MCP server to inspect production logs.
     
@@ -26,11 +27,22 @@ def query_loki(query: str) -> str:
     Returns:
         JSON string containing the matching log streams and error entries.
     """
-    res = grafana_mcp.query_loki_sync(query)
-    return json.dumps(res, indent=2)
+    result = await grafana_mcp.query_loki(query)
+    return json.dumps(result, indent=2)
 
 
-def search_dashboards(query: str = "") -> str:
+async def list_alerts() -> str:
+    """
+    Lists active firing and pending alerts configured in Grafana Alertmanager.
+    
+    Returns:
+        JSON string with list of firing alerts, affected pipeline stage, severity, and details.
+    """
+    result = await grafana_mcp.list_alerts()
+    return json.dumps(result, indent=2)
+
+
+async def search_dashboards(query: str = "") -> str:
     """
     Searches available Grafana monitoring dashboards for studio pipelines.
     
@@ -40,22 +52,11 @@ def search_dashboards(query: str = "") -> str:
     Returns:
         JSON string listing dashboard titles, UIDs, and tags.
     """
-    res = grafana_mcp.search_dashboards_sync(query)
-    return json.dumps(res, indent=2)
+    result = await grafana_mcp.search_dashboards(query)
+    return json.dumps(result, indent=2)
 
 
-def list_alerts() -> str:
-    """
-    Lists active firing and pending alerts configured in Grafana Alertmanager.
-    
-    Returns:
-        JSON string with list of firing alerts, affected pipeline stage, severity, and details.
-    """
-    res = grafana_mcp.list_alerts_sync()
-    return json.dumps(res, indent=2)
-
-
-def get_cinema_pipeline_snapshot() -> str:
+async def get_cinema_pipeline_snapshot() -> str:
     """
     Retrieves a real-time consolidated health snapshot across all studio pipelines:
     VFX Render Farm, 4K/8K Transcode Pipeline, and Live Premiere Broadcast.
@@ -63,14 +64,22 @@ def get_cinema_pipeline_snapshot() -> str:
     Returns:
         JSON string with high-level metrics, active project/shot, and active alerts.
     """
-    res = grafana_mcp.get_snapshot_sync()
-    return json.dumps(res, indent=2)
+    result = telemetry_simulator.get_snapshot()
+    return json.dumps(result, indent=2)
 
 
 STUDIO_TOOLS = [
     query_prometheus,
     query_loki,
-    search_dashboards,
     list_alerts,
+    search_dashboards,
     get_cinema_pipeline_snapshot
 ]
+
+TOOL_NAME_TO_FUNCTION = {
+    "query_prometheus": query_prometheus,
+    "query_loki": query_loki,
+    "list_alerts": list_alerts,
+    "search_dashboards": search_dashboards,
+    "get_cinema_pipeline_snapshot": get_cinema_pipeline_snapshot,
+}

@@ -3,14 +3,15 @@ import asyncio
 from backend.agent.copilot import StudioOpsCopilot
 from backend.agent.tools import query_prometheus, list_alerts, get_cinema_pipeline_snapshot
 
-def test_tool_invocations():
-    q_res = query_prometheus("studio_render_queue_depth")
+@pytest.mark.asyncio
+async def test_tool_invocations():
+    q_res = await query_prometheus("studio_render_queue_depth")
     assert "studio_render_queue_depth" in q_res
 
-    alerts_res = list_alerts()
+    alerts_res = await list_alerts()
     assert isinstance(alerts_res, str)
 
-    snap_res = get_cinema_pipeline_snapshot()
+    snap_res = await get_cinema_pipeline_snapshot()
     assert "render_farm" in snap_res
 
 @pytest.mark.asyncio
