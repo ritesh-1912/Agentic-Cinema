@@ -164,6 +164,9 @@ class StudioOpsCopilot:
             tools_used.append("query_prometheus('studio_livestream_dropped_frames_rate')")
             tools_used.append("query_loki('{app=\"studio-pipeline\"} |= \"stream\"')")
             
+            stream_bitrate_data = json.loads(await query_prometheus("studio_livestream_bitrate_kbps"))
+            stream_dropped_data = json.loads(await query_prometheus("studio_livestream_dropped_frames_rate"))
+            stream_logs = json.loads(await query_loki('{app="studio-pipeline"} |= "stream"'))
             snapshot_data = json.loads(await get_cinema_pipeline_snapshot())
             live = snapshot_data.get("livestream_premiere", {})
             bitrate = live.get("ingest_bitrate_kbps", 15200)

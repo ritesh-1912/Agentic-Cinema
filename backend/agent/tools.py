@@ -13,9 +13,7 @@ async def query_prometheus(query: str) -> str:
     Returns:
         JSON string containing the metric query results from Grafana.
     """
-    result = await grafana_mcp.query_prometheus(query)
-    return json.dumps(result, indent=2)
-
+    return json.dumps(await grafana_mcp.query_prometheus(query))
 
 async def query_loki(query: str) -> str:
     """
@@ -27,9 +25,7 @@ async def query_loki(query: str) -> str:
     Returns:
         JSON string containing the matching log streams and error entries.
     """
-    result = await grafana_mcp.query_loki(query)
-    return json.dumps(result, indent=2)
-
+    return json.dumps(await grafana_mcp.query_loki(query))
 
 async def list_alerts() -> str:
     """
@@ -38,9 +34,7 @@ async def list_alerts() -> str:
     Returns:
         JSON string with list of firing alerts, affected pipeline stage, severity, and details.
     """
-    result = await grafana_mcp.list_alerts()
-    return json.dumps(result, indent=2)
-
+    return json.dumps(await grafana_mcp.list_alerts())
 
 async def search_dashboards(query: str = "") -> str:
     """
@@ -52,9 +46,7 @@ async def search_dashboards(query: str = "") -> str:
     Returns:
         JSON string listing dashboard titles, UIDs, and tags.
     """
-    result = await grafana_mcp.search_dashboards(query)
-    return json.dumps(result, indent=2)
-
+    return json.dumps(await grafana_mcp.search_dashboards(query))
 
 async def get_cinema_pipeline_snapshot() -> str:
     """
@@ -66,7 +58,6 @@ async def get_cinema_pipeline_snapshot() -> str:
     """
     result = telemetry_simulator.get_snapshot()
     return json.dumps(result, indent=2)
-
 
 STUDIO_TOOLS = [
     query_prometheus,

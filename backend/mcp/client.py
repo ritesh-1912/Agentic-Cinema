@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 class GrafanaMcpClient:
     """
     Real MCP client for the official `grafana/mcp-grafana` server.
-    Opens one persistent stdio session for the process lifetime (call `connect()`
-    once at app startup, `close()` at shutdown) and dispatches tool calls
-    through the Model Context Protocol — not raw REST.
+    Opens one persistent stdio session for the process lifetime (connect() at
+    app startup, close() at shutdown) and dispatches tool calls through the
+    Model Context Protocol — not raw REST.
 
     Falls back to MockGrafanaMcpProvider ONLY if the MCP session cannot be
     established or a call errors out, and always logs a visible warning when
@@ -33,11 +33,10 @@ class GrafanaMcpClient:
         self._lock = asyncio.Lock()
 
     async def connect(self) -> None:
-        """Start the grafana-mcp subprocess and open an MCP session against it."""
         if self._connected:
             return
 
-        command = settings.GRAFANA_MCP_COMMAND  # e.g. "docker" or path to the mcp-grafana binary
+        command = settings.GRAFANA_MCP_COMMAND
         args = settings.GRAFANA_MCP_ARGS.split() if settings.GRAFANA_MCP_ARGS else []
         env = {
             "GRAFANA_URL": settings.GRAFANA_URL or "",
@@ -46,8 +45,8 @@ class GrafanaMcpClient:
 
         if not command:
             logger.warning(
-                "GRAFANA_MCP_COMMAND not set — GrafanaMcpClient will run in "
-                "SIMULATION-ONLY mode. Set it to enable the real MCP connection."
+                "GRAFANA_MCP_COMMAND not set — running in SIMULATION-ONLY mode. "
+                "Set it to enable the real MCP connection."
             )
             return
 
@@ -73,7 +72,7 @@ class GrafanaMcpClient:
             )
         except Exception as exc:
             logger.warning(
-                f"GrafanaMcpClient failed to establish a live MCP session ({exc}). "
+                f"Failed to establish a live MCP session ({exc}). "
                 f"Falling back to SIMULATION mode for this process lifetime."
             )
             self._connected = False
@@ -84,12 +83,9 @@ class GrafanaMcpClient:
         self._connected = False
 
     def _resolve_tool_name(self, *candidates: str) -> Optional[str]:
-        """Match a discovered tool name against a list of likely candidates,
-        since exact tool names can vary by mcp-grafana version."""
         for candidate in candidates:
             if candidate in self._available_tools:
                 return candidate
-        # fall back to substring match against discovered tools
         for name in self._available_tools:
             if any(c.lower() in name.lower() for c in candidates):
                 return name
@@ -102,12 +98,11 @@ class GrafanaMcpClient:
         tool_name = self._resolve_tool_name(*candidates)
         if tool_name is None:
             raise RuntimeError(
-                f"No matching tool found among discovered tools for candidates {candidates}. "
+                f"No matching tool found among candidates {candidates}. "
                 f"Available: {list(self._available_tools.keys())}"
             )
 
         result = await self._session.call_tool(tool_name, arguments=arguments)
-        # MCP tool results are a list of content blocks; concatenate text blocks
         text_parts = [block.text for block in result.content if hasattr(block, "text")]
         raw = "\n".join(text_parts)
         try:
@@ -173,5 +168,4 @@ class GrafanaMcpClient:
                 return MockGrafanaMcpProvider.list_alerts()
 
 
-# Global MCP client singleton — connect()/close() are called from the FastAPI lifespan hook
 grafana_mcp = GrafanaMcpClient()
