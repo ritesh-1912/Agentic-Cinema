@@ -67,7 +67,9 @@ We built **Studio Ops Copilot** to eliminate this bottleneck: giving creative an
   - **FastAPI** backend in Python providing conversational streaming, scenario state toggling, and telemetry endpoints.
   - **Ops Room Control Center UI** designed specifically for engineers under pressure: 3-column command center with pipeline rail, incident brief feed, and ticking monospace telemetry strip.
 - **Deployment & Cloud Infrastructure:**
-  - Fully containerized with **Docker** and configured for **Google Cloud Run** via `cloudbuild.yaml` and `deploy.sh`.
+  - Fully containerized with **Docker** bundling the official `grafana/mcp-grafana` binary.
+  - Hosted and continuously deployed on **Render.com** (with Google Cloud Run deployment scripts also provided via `cloudbuild.yaml` and `deploy.sh`).
+  - Powered by Google Gemini 2.5 Flash via free API keys from **Google AI Studio**.
 
 ---
 

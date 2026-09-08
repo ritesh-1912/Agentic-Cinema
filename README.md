@@ -124,7 +124,18 @@ docker run -p 8080:8080 studio-ops-copilot
 docker compose up -d
 ```
 
-### Option 3: Deploy to Google Cloud Run
+### Option 3: Deploy to Render.com (Recommended Free Hosting — No Credit Card)
+
+1. Sign in to [render.com](https://render.com) using your GitHub account.
+2. Click **New +** → **Web Service** → select `ritesh-1912/Agentic-Cinema`.
+3. Render automatically detects the `Dockerfile` (which includes the pre-bundled `mcp-grafana` binary).
+4. Select the **Free** instance type ($0/mo).
+5. In **Environment Variables**, add:
+   - `GEMINI_API_KEY`: Free key from [Google AI Studio](https://aistudio.google.com/app/api-keys) (no GCP billing required).
+   - *(Optional)* `GRAFANA_URL` & `GRAFANA_SERVICE_ACCOUNT_TOKEN` if connecting to live Grafana Cloud.
+6. Click **Create Web Service**. Your live URL will be ready at `https://<service-name>.onrender.com`.
+
+### Option 4: Deploy to Google Cloud Run
 
 ```bash
 chmod +x deploy.sh
