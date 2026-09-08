@@ -105,7 +105,8 @@ pip install -r requirements.txt
 
 # 3. Configure environment (optional - demo mode runs without keys)
 cp .env.example .env
-# Edit .env and set GEMINI_API_KEY and GRAFANA_URL / GRAFANA_SERVICE_ACCOUNT_TOKEN
+# Edit .env and set GEMINI_API_KEY (free from https://aistudio.google.com/app/api-keys, no GCP billing needed)
+# and your Grafana credentials if connecting to live Grafana Cloud.
 
 # 4. Start the server
 python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8080 --reload
