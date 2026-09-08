@@ -2,10 +2,12 @@
 ### Conversational AI Infrastructure Intelligence for Film & TV Production Pipelines
 **Submission for the Agentic Cinema: The Blockbuster Hackathon (Google Cloud + Devpost — Grafana Labs Track)**
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-brightgreen.svg)](https://agentic-cinema-3r18.onrender.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](https://opensource.org/licenses/MIT)
 [![Google Cloud AI](https://img.shields.io/badge/Google%20Cloud-Gemini%202.5%20%2F%20ADK-blue.svg)](https://cloud.google.com/vertex-ai)
 [![Grafana MCP](https://img.shields.io/badge/Grafana-MCP%20Server-orange.svg)](https://github.com/grafana/mcp-grafana)
-[![Cloud Run Ready](https://img.shields.io/badge/Deploy-Google%20Cloud%20Run-brightgreen.svg)](https://cloud.google.com/run)
+
+🌐 **Live Application URL:** [https://agentic-cinema-3r18.onrender.com](https://agentic-cinema-3r18.onrender.com)
 
 ---
 

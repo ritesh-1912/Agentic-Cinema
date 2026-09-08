@@ -17,9 +17,23 @@ class StudioTelemetrySimulator:
         self._step_counter = 0
 
     def set_scenario(self, scenario_name: str):
+        aliases = {
+            "nominal": "all_nominal",
+            "all_nominal": "all_nominal",
+            "render_farm": "render_farm_incident",
+            "render_farm_incident": "render_farm_incident",
+            "render_backlog": "render_farm_incident",
+            "livestream": "livestream_incident",
+            "livestream_incident": "livestream_incident",
+            "stream_drop": "livestream_incident",
+            "encoding": "encoding_incident",
+            "encoding_incident": "encoding_incident",
+            "transcode": "encoding_incident",
+        }
+        resolved = aliases.get(scenario_name, scenario_name)
         valid = ["render_farm_incident", "livestream_incident", "encoding_incident", "all_nominal"]
-        if scenario_name in valid:
-            self.scenario = scenario_name
+        if resolved in valid:
+            self.scenario = resolved
 
     def get_snapshot(self) -> Dict[str, Any]:
         """Returns a consolidated dictionary of current metrics and system state."""
