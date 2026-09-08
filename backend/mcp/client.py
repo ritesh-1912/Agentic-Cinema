@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
 
 from backend.config import settings
 from backend.mcp.mock_provider import MockGrafanaMcpProvider
@@ -16,7 +17,11 @@ logger = logging.getLogger(__name__)
 class GrafanaMcpClient:
     """
     Real MCP client for the official `grafana/mcp-grafana` server.
-    Opens one persistent stdio session for the process lifetime (connect() at
+    Supports persistent connections via:
+      1. Hosted SSE endpoint (GRAFANA_MCP_SSE_URL)
+      2. Bundled stdio binary / subprocess (GRAFANA_MCP_COMMAND)
+    
+    Opens one persistent session for the process lifetime (connect() at
     app startup, close() at shutdown) and dispatches tool calls through the
     Model Context Protocol — not raw REST.
 
@@ -36,6 +41,40 @@ class GrafanaMcpClient:
         if self._connected:
             return
 
+        # Option A: Connect via SSE to a hosted Grafana Cloud MCP endpoint
+        sse_url = settings.GRAFANA_MCP_SSE_URL
+        if sse_url:
+            try:
+                headers = {}
+                if settings.GRAFANA_SERVICE_ACCOUNT_TOKEN:
+                    headers["Authorization"] = f"Bearer {settings.GRAFANA_SERVICE_ACCOUNT_TOKEN}"
+                self._exit_stack = AsyncExitStack()
+                read_stream, write_stream = await self._exit_stack.enter_async_context(
+                    sse_client(sse_url, headers=headers)
+                )
+                self._session = await self._exit_stack.enter_async_context(
+                    ClientSession(read_stream, write_stream)
+                )
+                await self._session.initialize()
+
+                tools_result = await self._session.list_tools()
+                self._available_tools = {t.name: t for t in tools_result.tools}
+                self._connected = True
+
+                logger.info(
+                    f"GrafanaMcpClient connected via SSE ({sse_url}). "
+                    f"Discovered {len(self._available_tools)} tools: "
+                    f"{list(self._available_tools.keys())}"
+                )
+                return
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to establish live MCP session via SSE ({exc}). "
+                    f"Falling back to stdio / simulation mode."
+                )
+                self._connected = False
+
+        # Option B: Run local mcp-grafana binary or command via stdio transport
         command = settings.GRAFANA_MCP_COMMAND
         args = settings.GRAFANA_MCP_ARGS.split() if settings.GRAFANA_MCP_ARGS else []
         env = {
@@ -45,8 +84,8 @@ class GrafanaMcpClient:
 
         if not command:
             logger.warning(
-                "GRAFANA_MCP_COMMAND not set — running in SIMULATION-ONLY mode. "
-                "Set it to enable the real MCP connection."
+                "Neither GRAFANA_MCP_SSE_URL nor GRAFANA_MCP_COMMAND configured — "
+                "running in SIMULATION-ONLY mode. Set either to enable the live MCP connection."
             )
             return
 
@@ -66,7 +105,7 @@ class GrafanaMcpClient:
             self._connected = True
 
             logger.info(
-                f"GrafanaMcpClient connected via real MCP session. "
+                f"GrafanaMcpClient connected via real MCP stdio session. "
                 f"Discovered {len(self._available_tools)} tools: "
                 f"{list(self._available_tools.keys())}"
             )

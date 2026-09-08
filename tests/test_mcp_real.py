@@ -71,3 +71,30 @@ async def test_mcp_tool_execution_live_and_fallback():
     res_live = await client.query_prometheus("studio_render_queue_depth")
     assert res_live["status"] == "success"
     assert res_live["data"]["result"][0]["value"][1] == "1428"
+
+
+@pytest.mark.asyncio
+async def test_mcp_connect_via_sse():
+    """
+    Tests MCP connect() via SSE endpoint (Option A).
+    """
+    client = GrafanaMcpClient()
+
+    mock_tool = MagicMock()
+    mock_tool.name = "query_prometheus"
+    mock_tools_result = MagicMock()
+    mock_tools_result.tools = [mock_tool]
+
+    mock_session = AsyncMock()
+    mock_session.list_tools.return_value = mock_tools_result
+
+    with patch("backend.mcp.client.sse_client") as mock_sse:
+        mock_sse.return_value.__aenter__.return_value = (MagicMock(), MagicMock())
+        with patch("backend.mcp.client.ClientSession") as mock_cls_session:
+            mock_cls_session.return_value.__aenter__.return_value = mock_session
+            with patch.object(settings, "GRAFANA_MCP_SSE_URL", "https://test-instance.grafana.net/mcp"):
+                await client.connect()
+                assert client._connected is True
+                assert "query_prometheus" in client._available_tools
+                await client.close()
+                assert client._connected is False

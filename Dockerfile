@@ -8,11 +8,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system utilities
+# Install system utilities & official mcp-grafana binary
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    tar \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -sL https://github.com/grafana/mcp-grafana/releases/download/v1.3.0/mcp-grafana_Linux_x86_64.tar.gz \
+       | tar -xz -C /usr/local/bin mcp-grafana \
+    && chmod +x /usr/local/bin/mcp-grafana
 
 # Install Python dependencies
 COPY requirements.txt .

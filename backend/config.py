@@ -17,7 +17,11 @@ class Settings:
     GRAFANA_SERVICE_ACCOUNT_TOKEN: Optional[str] = os.getenv("GRAFANA_SERVICE_ACCOUNT_TOKEN")
     
     # Grafana MCP server settings
-    GRAFANA_MCP_COMMAND: str = os.getenv("GRAFANA_MCP_COMMAND", "")
+    GRAFANA_MCP_SSE_URL: Optional[str] = os.getenv("GRAFANA_MCP_SSE_URL")
+    GRAFANA_MCP_COMMAND: str = os.getenv(
+        "GRAFANA_MCP_COMMAND",
+        "/usr/local/bin/mcp-grafana" if os.path.exists("/usr/local/bin/mcp-grafana") else ""
+    )
     GRAFANA_MCP_ARGS: str = os.getenv("GRAFANA_MCP_ARGS", "")
 
     # Grafana Cloud Prometheus Push Configuration
