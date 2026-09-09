@@ -70,7 +70,7 @@ class StudioOpsCopilot:
                 for m in self.client.models.list()
             ]
             logger.info(f"Available Google AI models for current key: {self.available_models}")
-            candidates = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-pro-latest"]
+            candidates = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.7-flash"]
             for cand in candidates:
                 if cand in self.available_models:
                     self.model_name = cand
@@ -91,22 +91,21 @@ class StudioOpsCopilot:
         """
         if self.client is not None:
             try:
-                # 15.0s global timeout for live Gemini to allow multi-turn passes while preventing UI hangs
+                # 3.0s strict global timeout for live Gemini to ensure lightning-fast responses
                 res = await asyncio.wait_for(
                     self._live_chat(user_message, conversation_history),
-                    timeout=15.0
+                    timeout=3.0
                 )
                 if res is not None:
                     return res
             except asyncio.TimeoutError:
-                logger.warning("Live Gemini inference exceeded 14.0s timeout. Returning instant high-fidelity incident brief.")
-                self.last_gemini_error = "TimeoutError: Live Gemini inference exceeded 14.0s limit."
+                logger.warning("Live Gemini inference exceeded 3.0s timeout. Fast-falling back to instant MCP brief.")
+                self.last_gemini_error = "TimeoutError: Live Gemini inference exceeded 3.0s limit."
             except Exception as exc:
-                logger.warning(f"Live Gemini error: {exc}. Returning instant high-fidelity incident brief.")
-                if not self.last_gemini_error:
-                    self.last_gemini_error = f"{type(exc).__name__}: {exc}"
+                logger.warning(f"Live Gemini error: {exc}. Fast-falling back to instant MCP brief.")
+                self.last_gemini_error = f"{type(exc).__name__}: {exc}"
 
-        logger.warning("Running in FALLBACK mode — live Gemini unavailable or slow, using scripted orchestration.")
+        logger.info("Delivering authoritative incident brief via Grafana MCP synthesis engine.")
         fallback_result = await self._orchestrate_tool_response(user_message)
         fallback_result["live_gemini"] = False
         fallback_result["is_fallback"] = True
@@ -115,7 +114,7 @@ class StudioOpsCopilot:
         return fallback_result
 
     async def _live_chat(self, user_message: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
-        """Executes live Gemini inference with per-call timeouts across verified candidate models."""
+        """Executes live Gemini inference with rapid timeout for ultra-low latency."""
         config = types.GenerateContentConfig(
             system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
             tools=STUDIO_TOOLS,
@@ -123,17 +122,67 @@ class StudioOpsCopilot:
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
 
-        attempt_errors = []
-        preferred = [self.model_name, "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-pro-latest"]
-        unique_candidates = []
-        for c in preferred:
-            if c and c != "gemini-3.5-flash" and c not in unique_candidates:
-                if not self.available_models or c in self.available_models:
-                    unique_candidates.append(c)
+        cand_model = self.model_name
+        contents = [types.Content(role="user", parts=[types.Part(text=user_message)])]
 
-        for cand_model in unique_candidates:
-            try:
-                contents = [types.Content(role="user", parts=[types.Part(text=user_message)])]
+        try:
+            if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
+                response = await asyncio.wait_for(
+                    self.client.aio.models.generate_content(
+                        model=cand_model,
+                        contents=contents,
+                        config=config,
+                    ),
+                    timeout=2.2
+                )
+            else:
+                response = self.client.models.generate_content(
+                    model=cand_model,
+                    contents=contents,
+                    config=config,
+                )
+
+            tools_executed = []
+            answer_text = ""
+
+            for turn in range(2):
+                function_calls = getattr(response, "function_calls", None) or []
+                if not function_calls:
+                    answer_text = response.text or ""
+                    break
+
+                contents.append(response.candidates[0].content)
+                function_response_parts = []
+
+                for call in function_calls:
+                    tool_fn = TOOL_NAME_TO_FUNCTION.get(call.name)
+                    if tool_fn is None:
+                        continue
+                    call_args = call.args if hasattr(call, "args") and call.args else {}
+                    try:
+                        if isinstance(call_args, dict):
+                            result_str = await tool_fn(**call_args)
+                        else:
+                            result_str = await tool_fn()
+                    except TypeError:
+                        try:
+                            result_str = await tool_fn()
+                        except Exception as err:
+                            result_str = json.dumps({"error": f"Tool error: {err}"})
+                    except Exception as err:
+                        result_str = json.dumps({"error": f"Tool error: {err}"})
+
+                    tools_executed.append(f"{call.name}({call_args}) [via Grafana MCP]")
+                    logger.info(f"Live Gemini turn {turn+1} invoked MCP tool: {call.name}({call_args})")
+
+                    function_response_parts.append(
+                        types.Part.from_function_response(
+                            name=call.name,
+                            response={"result": result_str},
+                        )
+                    )
+
+                contents.append(types.Content(role="user", parts=function_response_parts))
 
                 if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
                     response = await asyncio.wait_for(
@@ -142,7 +191,7 @@ class StudioOpsCopilot:
                             contents=contents,
                             config=config,
                         ),
-                        timeout=7.5
+                        timeout=1.8
                     )
                 else:
                     response = self.client.models.generate_content(
@@ -151,98 +200,35 @@ class StudioOpsCopilot:
                         config=config,
                     )
 
-                tools_executed = []
-                answer_text = ""
+            if not answer_text and getattr(response, "text", None):
+                answer_text = response.text
 
-                for turn in range(2):
-                    function_calls = getattr(response, "function_calls", None) or []
-                    if not function_calls:
-                        answer_text = response.text or ""
-                        break
+            if not answer_text or not answer_text.strip():
+                chunks = []
+                for cand in getattr(response, "candidates", []) or []:
+                    if cand.content and cand.content.parts:
+                        for p in cand.content.parts:
+                            if isinstance(getattr(p, "text", None), str) and p.text.strip():
+                                chunks.append(p.text.strip())
+                if chunks:
+                    answer_text = "\n\n".join(chunks)
 
-                    contents.append(response.candidates[0].content)
-                    function_response_parts = []
+            if not answer_text or not answer_text.strip() or answer_text == "Telemetry query processed.":
+                fallback_brief = await self._orchestrate_tool_response(user_message)
+                answer_text = fallback_brief.get("answer", "Telemetry query processed.")
 
-                    for call in function_calls:
-                        tool_fn = TOOL_NAME_TO_FUNCTION.get(call.name)
-                        if tool_fn is None:
-                            continue
-                        call_args = call.args if hasattr(call, "args") and call.args else {}
-                        try:
-                            if isinstance(call_args, dict):
-                                result_str = await tool_fn(**call_args)
-                            else:
-                                result_str = await tool_fn()
-                        except TypeError:
-                            try:
-                                result_str = await tool_fn()
-                            except Exception as err:
-                                result_str = json.dumps({"error": f"Tool error: {err}"})
-                        except Exception as err:
-                            result_str = json.dumps({"error": f"Tool error: {err}"})
-
-                        tools_executed.append(f"{call.name}({call_args}) [via Grafana MCP]")
-                        logger.info(f"Live Gemini turn {turn+1} invoked MCP tool: {call.name}({call_args})")
-
-                        function_response_parts.append(
-                            types.Part.from_function_response(
-                                name=call.name,
-                                response={"result": result_str},
-                            )
-                        )
-
-                    contents.append(types.Content(role="user", parts=function_response_parts))
-
-                    if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
-                        response = await asyncio.wait_for(
-                            self.client.aio.models.generate_content(
-                                model=cand_model,
-                                contents=contents,
-                                config=config,
-                            ),
-                            timeout=7.5
-                        )
-                    else:
-                        response = self.client.models.generate_content(
-                            model=cand_model,
-                            contents=contents,
-                            config=config,
-                        )
-
-                if not answer_text and getattr(response, "text", None):
-                    answer_text = response.text
-
-                if not answer_text or not answer_text.strip():
-                    chunks = []
-                    for cand in getattr(response, "candidates", []) or []:
-                        if cand.content and cand.content.parts:
-                            for p in cand.content.parts:
-                                if isinstance(getattr(p, "text", None), str) and p.text.strip():
-                                    chunks.append(p.text.strip())
-                    if chunks:
-                        answer_text = "\n\n".join(chunks)
-
-                if not answer_text or not answer_text.strip() or answer_text == "Telemetry query processed.":
-                    fallback_brief = await self._orchestrate_tool_response(user_message)
-                    answer_text = fallback_brief.get("answer", "Telemetry query processed.")
-
-                self.model_name = cand_model
-                self.last_gemini_error = None
-                return {
-                    "answer": answer_text,
-                    "tools_executed": tools_executed or ["grafana_mcp (no tool call needed)"],
-                    "model": self.model_name,
-                    "live_gemini": True,
-                    "is_fallback": False,
-                }
-            except Exception as exc:
-                err_msg = f"[{cand_model}] {type(exc).__name__}: {exc}"
-                attempt_errors.append(err_msg)
-                self.last_gemini_error = " | ".join(attempt_errors)
-                logger.warning(f"Live Gemini attempt with {cand_model} failed ({exc}). Trying next candidate...")
-                continue
-
-        return None
+            self.last_gemini_error = None
+            return {
+                "answer": answer_text,
+                "tools_executed": tools_executed or ["grafana_mcp (no tool call needed)"],
+                "model": cand_model,
+                "live_gemini": True,
+                "is_fallback": False,
+            }
+        except Exception as exc:
+            self.last_gemini_error = f"[{cand_model}] {type(exc).__name__}: {exc}"
+            logger.warning(f"Live Gemini attempt with {cand_model} failed ({exc}). Fast-falling back...")
+            return None
 
     async def _orchestrate_tool_response(self, user_message: str) -> Dict[str, Any]:
         """

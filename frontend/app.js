@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  setInterval(fetchTelemetry, 2000);
+  setInterval(fetchTelemetry, 3500);
   fetchTelemetry();
 
   // Scenario selection
@@ -208,7 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
     briefFeed.scrollTop = briefFeed.scrollHeight;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 16000); // 16s client timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s client timeout
 
     try {
       const res = await fetch("/api/chat", {
