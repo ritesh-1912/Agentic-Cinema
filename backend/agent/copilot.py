@@ -70,7 +70,7 @@ class StudioOpsCopilot:
                 for m in self.client.models.list()
             ]
             logger.info(f"Available Google AI models for current key: {self.available_models}")
-            candidates = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-flash-latest"]
+            candidates = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-pro-latest"]
             for cand in candidates:
                 if cand in self.available_models:
                     self.model_name = cand
@@ -91,10 +91,10 @@ class StudioOpsCopilot:
         """
         if self.client is not None:
             try:
-                # 14.0s global timeout for live Gemini to allow multi-turn passes while preventing UI hangs
+                # 15.0s global timeout for live Gemini to allow multi-turn passes while preventing UI hangs
                 res = await asyncio.wait_for(
                     self._live_chat(user_message, conversation_history),
-                    timeout=14.0
+                    timeout=15.0
                 )
                 if res is not None:
                     return res
@@ -124,7 +124,7 @@ class StudioOpsCopilot:
         )
 
         attempt_errors = []
-        preferred = [self.model_name, "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
+        preferred = [self.model_name, "gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-pro-latest"]
         unique_candidates = []
         for c in preferred:
             if c and c != "gemini-3.5-flash" and c not in unique_candidates:
@@ -142,7 +142,7 @@ class StudioOpsCopilot:
                             contents=contents,
                             config=config,
                         ),
-                        timeout=6.0
+                        timeout=7.5
                     )
                 else:
                     response = self.client.models.generate_content(
@@ -200,7 +200,7 @@ class StudioOpsCopilot:
                                 contents=contents,
                                 config=config,
                             ),
-                            timeout=6.0
+                            timeout=7.5
                         )
                     else:
                         response = self.client.models.generate_content(
