@@ -123,11 +123,13 @@ class StudioOpsCopilot:
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
 
-        candidates_to_try = [self.model_name, "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-flash-latest"]
+        attempt_errors = []
+        preferred = [self.model_name, "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
         unique_candidates = []
-        for c in candidates_to_try:
-            if c and "2.5" not in c and c != "gemini-3.5-flash" and c not in unique_candidates:
-                unique_candidates.append(c)
+        for c in preferred:
+            if c and c != "gemini-3.5-flash" and c not in unique_candidates:
+                if not self.available_models or c in self.available_models:
+                    unique_candidates.append(c)
 
         for cand_model in unique_candidates:
             try:
@@ -234,7 +236,9 @@ class StudioOpsCopilot:
                     "is_fallback": False,
                 }
             except Exception as exc:
-                self.last_gemini_error = f"{type(exc).__name__}: {exc}"
+                err_msg = f"[{cand_model}] {type(exc).__name__}: {exc}"
+                attempt_errors.append(err_msg)
+                self.last_gemini_error = " | ".join(attempt_errors)
                 logger.warning(f"Live Gemini attempt with {cand_model} failed ({exc}). Trying next candidate...")
                 continue
 
