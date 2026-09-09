@@ -85,17 +85,20 @@ class StudioOpsCopilot:
         """
         if self.client is not None:
             try:
-                # 14.0s global timeout for live Gemini to allow 2 multi-turn passes while preventing UI hangs
-                return await asyncio.wait_for(
+                # 14.0s global timeout for live Gemini to allow multi-turn passes while preventing UI hangs
+                res = await asyncio.wait_for(
                     self._live_chat(user_message, conversation_history),
                     timeout=14.0
                 )
+                if res is not None:
+                    return res
             except asyncio.TimeoutError:
                 logger.warning("Live Gemini inference exceeded 14.0s timeout. Returning instant high-fidelity incident brief.")
                 self.last_gemini_error = "TimeoutError: Live Gemini inference exceeded 14.0s limit."
             except Exception as exc:
                 logger.warning(f"Live Gemini error: {exc}. Returning instant high-fidelity incident brief.")
-                self.last_gemini_error = f"{type(exc).__name__}: {exc}"
+                if not self.last_gemini_error:
+                    self.last_gemini_error = f"{type(exc).__name__}: {exc}"
 
         logger.warning("Running in FALLBACK mode — live Gemini unavailable or slow, using scripted orchestration.")
         fallback_result = await self._orchestrate_tool_response(user_message)
@@ -230,7 +233,7 @@ class StudioOpsCopilot:
                 logger.warning(f"Live Gemini attempt with {cand_model} failed ({exc}). Trying next candidate...")
                 continue
 
-        raise RuntimeError("All candidate models failed or timed out.")
+        return None
 
     async def _orchestrate_tool_response(self, user_message: str) -> Dict[str, Any]:
         """
@@ -283,7 +286,7 @@ class StudioOpsCopilot:
             return {
                 "answer": brief,
                 "tools_executed": tools_used,
-                "model": "gemini-2.5-flash (Studio Ops Engine)",
+                "model": f"{self.model_name} (Studio Ops Engine)",
                 "live_gemini": False,
                 "is_fallback": True
             }
@@ -331,7 +334,7 @@ class StudioOpsCopilot:
             return {
                 "answer": brief,
                 "tools_executed": tools_used,
-                "model": "gemini-2.5-flash (Studio Ops Engine)",
+                "model": f"{self.model_name} (Studio Ops Engine)",
                 "live_gemini": False,
                 "is_fallback": True
             }
@@ -367,7 +370,7 @@ There are currently **{len(alerts)} firing alert(s)** requiring crew interventio
             return {
                 "answer": brief,
                 "tools_executed": tools_used,
-                "model": "gemini-2.5-flash (Studio Ops Engine)",
+                "model": f"{self.model_name} (Studio Ops Engine)",
                 "live_gemini": False,
                 "is_fallback": True
             }
