@@ -69,6 +69,7 @@ async def health_check():
         "has_grafana": settings.has_grafana_credentials,
         "active_scenario": telemetry_simulator.scenario,
         "gemini_model": copilot_agent.model_name,
+        "available_models": getattr(copilot_agent, "available_models", []),
         "last_gemini_error": copilot_agent.last_gemini_error,
     }
 

@@ -42,11 +42,12 @@ class StudioOpsCopilot:
     """
 
     def __init__(self):
-        raw_model = settings.GEMINI_MODEL or "gemini-3.6-flash"
-        self.model_name = "gemini-3.6-flash" if "2.5" in raw_model else raw_model
+        raw_model = settings.GEMINI_MODEL or "gemini-2.0-flash"
+        self.model_name = "gemini-2.0-flash" if ("2.5" in raw_model or "3.5" in raw_model) else raw_model
         self.api_key = settings.GEMINI_API_KEY
         self.client = None
         self.last_gemini_error = None
+        self.available_models: List[str] = []
         
         if GENAI_AVAILABLE and self.api_key:
             try:
@@ -64,16 +65,21 @@ class StudioOpsCopilot:
         if not self.client:
             return
         try:
-            available_models = [
+            self.available_models = [
                 m.name.replace("models/", "")
                 for m in self.client.models.list()
             ]
-            logger.info(f"Available Google AI models for current key: {available_models}")
-            candidates = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-pro-latest"]
+            logger.info(f"Available Google AI models for current key: {self.available_models}")
+            candidates = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-flash-latest"]
             for cand in candidates:
-                if cand in available_models and "2.5" not in cand and cand != "gemini-3.5-flash":
+                if cand in self.available_models:
                     self.model_name = cand
                     logger.info(f"Selected verified Google AI model: {self.model_name}")
+                    return
+            for m in self.available_models:
+                if "flash" in m and "preview" not in m and "2.5" not in m and "3.5" not in m:
+                    self.model_name = m
+                    logger.info(f"Selected fallback flash model: {self.model_name}")
                     return
         except Exception as e:
             logger.warning(f"Could not query models.list during init: {e}")
@@ -115,10 +121,9 @@ class StudioOpsCopilot:
             tools=STUDIO_TOOLS,
             temperature=0.2,
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-            thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
 
-        candidates_to_try = [self.model_name, "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+        candidates_to_try = [self.model_name, "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-flash-latest"]
         unique_candidates = []
         for c in candidates_to_try:
             if c and "2.5" not in c and c != "gemini-3.5-flash" and c not in unique_candidates:
