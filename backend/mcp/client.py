@@ -198,10 +198,10 @@ class GrafanaMcpClient:
         async with self._lock:
             try:
                 result = await self._call_tool(
-                    ["list_alert_rules", "list_alerts", "get_alerts"],
+                    ["list_alert_groups", "alerting_manage_rules", "get_alert_group", "list_alert_rules", "list_alerts"],
                     {},
                 )
-                return result if isinstance(result, list) else result.get("alerts", [])
+                return result if isinstance(result, list) else result.get("alerts", result.get("groups", []))
             except Exception as exc:
                 logger.warning(f"Live alerts MCP call failed ({exc}), using simulation")
                 return MockGrafanaMcpProvider.list_alerts()

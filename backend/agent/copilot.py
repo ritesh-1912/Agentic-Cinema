@@ -61,58 +61,55 @@ class StudioOpsCopilot:
         """
         if self.client is not None:
             try:
-                logger.info("Executing live Google Gemini inference with Grafana MCP tools...")
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=user_message,
-                    config=types.GenerateContentConfig(
-                        system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
-                        tools=STUDIO_TOOLS,
-                        temperature=0.2,
-                    ),
+                config = types.GenerateContentConfig(
+                    system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
+                    tools=STUDIO_TOOLS,
+                    temperature=0.2,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
                 )
 
-                # Check whether Gemini asked to call a tool
-                function_calls = getattr(response, "function_calls", None)
+                contents = [types.Content(role="user", parts=[types.Part(text=user_message)])]
+
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=contents,
+                    config=config,
+                )
+
                 tools_executed = []
+                function_calls = getattr(response, "function_calls", None) or []
 
                 if function_calls:
-                    tool_parts = []
+                    contents.append(response.candidates[0].content)
+                    function_response_parts = []
+
                     for call in function_calls:
                         tool_fn = TOOL_NAME_TO_FUNCTION.get(call.name)
-                        if tool_fn is not None:
-                            tool_args = call.args if hasattr(call, "args") and call.args else {}
-                            if isinstance(tool_args, dict):
-                                tool_result = await tool_fn(**tool_args)
-                            else:
-                                tool_result = await tool_fn()
-                            tools_executed.append(f"{call.name}({tool_args}) [via Grafana MCP]")
-                            logger.info(f"Live Gemini invoked MCP tool: {call.name}({tool_args})")
-                            tool_parts.append(
-                                types.Part.from_function_response(
-                                    name=call.name,
-                                    response={"result": tool_result}
-                                )
-                            )
+                        if tool_fn is None:
+                            continue
+                        call_args = call.args if hasattr(call, "args") and call.args else {}
+                        if isinstance(call_args, dict):
+                            result_str = await tool_fn(**call_args)
+                        else:
+                            result_str = await tool_fn()
+                        tools_executed.append(f"{call.name}({call_args}) [via Grafana MCP]")
+                        logger.info(f"Live Gemini invoked MCP tool: {call.name}({call_args})")
 
-                    # Feed tool results back to Gemini for final incident brief synthesis
-                    if tool_parts and hasattr(response, "candidates") and response.candidates:
-                        contents = [
-                            types.Content(role="user", parts=[types.Part.from_text(text=user_message)]),
-                            response.candidates[0].content,
-                            types.Content(role="tool", parts=tool_parts),
-                        ]
-                        followup = self.client.models.generate_content(
-                            model=self.model_name,
-                            contents=contents,
-                            config=types.GenerateContentConfig(
-                                system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
-                                temperature=0.2,
-                            ),
+                        function_response_parts.append(
+                            types.Part.from_function_response(
+                                name=call.name,
+                                response={"result": result_str},
+                            )
                         )
-                        answer_text = followup.text if hasattr(followup, "text") and followup.text else "Telemetry query processed."
-                    else:
-                        answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
+
+                    contents.append(types.Content(role="user", parts=function_response_parts))
+
+                    final_response = self.client.models.generate_content(
+                        model=self.model_name,
+                        contents=contents,
+                        config=config,
+                    )
+                    answer_text = final_response.text if hasattr(final_response, "text") and final_response.text else "Telemetry query processed."
                 else:
                     answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
 
@@ -121,13 +118,16 @@ class StudioOpsCopilot:
                     "tools_executed": tools_executed or ["grafana_mcp (no tool call needed)"],
                     "model": self.model_name,
                     "live_gemini": True,
-                    "is_fallback": False
+                    "is_fallback": False,
                 }
             except Exception as exc:
                 logger.warning(f"Live Gemini API invocation error: {exc}. Using internal tool orchestration.")
 
         logger.warning("Running in FALLBACK mode — live Gemini unavailable, using scripted orchestration.")
-        return await self._orchestrate_tool_response(user_message)
+        fallback_result = await self._orchestrate_tool_response(user_message)
+        fallback_result["live_gemini"] = False
+        fallback_result["is_fallback"] = True
+        return fallback_result
 
     async def _orchestrate_tool_response(self, user_message: str) -> Dict[str, Any]:
         """
@@ -181,7 +181,7 @@ class StudioOpsCopilot:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None),
+                "live_gemini": False,
                 "is_fallback": True
             }
 
@@ -229,7 +229,7 @@ class StudioOpsCopilot:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None),
+                "live_gemini": False,
                 "is_fallback": True
             }
 
@@ -265,7 +265,7 @@ There are currently **{len(alerts)} firing alert(s)** requiring crew interventio
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None),
+                "live_gemini": False,
                 "is_fallback": True
             }
 
@@ -283,7 +283,7 @@ The following production dashboards are active in Grafana Cloud:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None),
+                "live_gemini": False,
                 "is_fallback": True
             }
 
@@ -310,7 +310,7 @@ The following production dashboards are active in Grafana Cloud:
                 "answer": brief,
                 "tools_executed": tools_used,
                 "model": "gemini-2.5-flash (Studio Ops Engine)",
-                "live_gemini": bool(self.client is not None),
+                "live_gemini": False,
                 "is_fallback": True
             }
 
