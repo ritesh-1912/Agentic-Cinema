@@ -3,7 +3,7 @@ from typing import Dict, Any, List
 from backend.mcp.client import grafana_mcp
 from backend.simulator.telemetry import telemetry_simulator
 
-async def query_prometheus(query: str) -> str:
+async def query_prometheus(query: str = "", *args, **kwargs) -> str:
     """
     Executes a PromQL query via the Grafana MCP server to retrieve metrics.
     
@@ -13,9 +13,11 @@ async def query_prometheus(query: str) -> str:
     Returns:
         JSON string containing the metric query results from Grafana.
     """
+    if not query and args:
+        query = str(args[0])
     return json.dumps(await grafana_mcp.query_prometheus(query))
 
-async def query_loki(query: str) -> str:
+async def query_loki(query: str = "", *args, **kwargs) -> str:
     """
     Executes a LogQL query via the Grafana MCP server to inspect production logs.
     
@@ -25,9 +27,11 @@ async def query_loki(query: str) -> str:
     Returns:
         JSON string containing the matching log streams and error entries.
     """
+    if not query and args:
+        query = str(args[0])
     return json.dumps(await grafana_mcp.query_loki(query))
 
-async def list_alerts() -> str:
+async def list_alerts(*args, **kwargs) -> str:
     """
     Lists active firing and pending alerts configured in Grafana Alertmanager.
     
@@ -36,7 +40,7 @@ async def list_alerts() -> str:
     """
     return json.dumps(await grafana_mcp.list_alerts())
 
-async def search_dashboards(query: str = "") -> str:
+async def search_dashboards(query: str = "", *args, **kwargs) -> str:
     """
     Searches available Grafana monitoring dashboards for studio pipelines.
     
@@ -46,9 +50,11 @@ async def search_dashboards(query: str = "") -> str:
     Returns:
         JSON string listing dashboard titles, UIDs, and tags.
     """
+    if not query and args:
+        query = str(args[0])
     return json.dumps(await grafana_mcp.search_dashboards(query))
 
-async def get_cinema_pipeline_snapshot() -> str:
+async def get_cinema_pipeline_snapshot(*args, **kwargs) -> str:
     """
     Retrieves a real-time consolidated health snapshot across all studio pipelines:
     VFX Render Farm, 4K/8K Transcode Pipeline, and Live Premiere Broadcast.

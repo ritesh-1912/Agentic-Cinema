@@ -68,9 +68,9 @@ class StudioOpsCopilot:
                 for m in self.client.models.list()
             ]
             logger.info(f"Available Google AI models for current key: {available_models}")
-            candidates = [self.model_name, "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite"]
+            candidates = [self.model_name, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.7-flash"]
             for cand in candidates:
-                if cand in available_models and cand != "gemini-2.5-flash":
+                if cand in available_models and "2.5" not in cand:
                     self.model_name = cand
                     logger.info(f"Selected verified Google AI model: {self.model_name}")
                     return
@@ -91,10 +91,10 @@ class StudioOpsCopilot:
                 thinking_config=types.ThinkingConfig(thinking_budget=0),
             )
 
-            candidates_to_try = [self.model_name, "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite"]
+            candidates_to_try = [self.model_name, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.7-flash"]
             unique_candidates = []
             for c in candidates_to_try:
-                if c and "2.5-flash" != c and "2.5-pro" != c and c not in unique_candidates:
+                if c and "2.5" not in c and c not in unique_candidates:
                     unique_candidates.append(c)
 
             for cand_model in unique_candidates:
@@ -131,10 +131,19 @@ class StudioOpsCopilot:
                             if tool_fn is None:
                                 continue
                             call_args = call.args if hasattr(call, "args") and call.args else {}
-                            if isinstance(call_args, dict):
-                                result_str = await tool_fn(**call_args)
-                            else:
-                                result_str = await tool_fn()
+                            try:
+                                if isinstance(call_args, dict):
+                                    result_str = await tool_fn(**call_args)
+                                else:
+                                    result_str = await tool_fn()
+                            except TypeError:
+                                try:
+                                    result_str = await tool_fn()
+                                except Exception as err:
+                                    result_str = json.dumps({"error": f"Tool error: {err}"})
+                            except Exception as err:
+                                result_str = json.dumps({"error": f"Tool error: {err}"})
+
                             tools_executed.append(f"{call.name}({call_args}) [via Grafana MCP]")
                             logger.info(f"Live Gemini turn {turn+1} invoked MCP tool: {call.name}({call_args})")
 
