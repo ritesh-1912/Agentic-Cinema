@@ -67,7 +67,9 @@ async def health_check():
         "service": "studio-ops-copilot",
         "has_gemini": settings.has_gemini_credentials,
         "has_grafana": settings.has_grafana_credentials,
-        "active_scenario": telemetry_simulator.scenario
+        "active_scenario": telemetry_simulator.scenario,
+        "gemini_model": copilot_agent.model_name,
+        "last_gemini_error": copilot_agent.last_gemini_error,
     }
 
 @app.post("/api/chat")

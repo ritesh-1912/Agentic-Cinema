@@ -41,15 +41,18 @@ class StudioOpsCopilot:
     """
 
     def __init__(self):
-        self.model_name = settings.GEMINI_MODEL
+        raw_model = settings.GEMINI_MODEL
+        self.model_name = "gemini-2.0-flash" if "2.5" in raw_model else raw_model
         self.api_key = settings.GEMINI_API_KEY
         self.client = None
+        self.last_gemini_error = None
         
         if GENAI_AVAILABLE and self.api_key:
             try:
                 self.client = genai.Client(api_key=self.api_key)
                 logger.info(f"✅ StudioOpsCopilot: Connected to live Google GenAI (Model: {self.model_name})")
             except Exception as e:
+                self.last_gemini_error = f"InitError: {e}"
                 logger.warning(f"⚠️ StudioOpsCopilot: Failed to initialize live GenAI client ({e}). Running in fallback mode.")
         else:
             logger.info("StudioOpsCopilot: Running in zero-friction evaluation mode. Set GEMINI_API_KEY for live model inference.")
@@ -135,12 +138,15 @@ class StudioOpsCopilot:
                     "is_fallback": False,
                 }
             except Exception as exc:
+                self.last_gemini_error = f"{type(exc).__name__}: {exc}"
                 logger.warning(f"Live Gemini API invocation error: {exc}. Using internal tool orchestration.")
 
         logger.warning("Running in FALLBACK mode — live Gemini unavailable, using scripted orchestration.")
         fallback_result = await self._orchestrate_tool_response(user_message)
         fallback_result["live_gemini"] = False
         fallback_result["is_fallback"] = True
+        if self.last_gemini_error:
+            fallback_result["gemini_error"] = self.last_gemini_error
         return fallback_result
 
     async def _orchestrate_tool_response(self, user_message: str) -> Dict[str, Any]:
