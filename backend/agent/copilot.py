@@ -70,11 +70,18 @@ class StudioOpsCopilot:
 
                 contents = [types.Content(role="user", parts=[types.Part(text=user_message)])]
 
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=contents,
-                    config=config,
-                )
+                if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
+                    response = await self.client.aio.models.generate_content(
+                        model=self.model_name,
+                        contents=contents,
+                        config=config,
+                    )
+                else:
+                    response = self.client.models.generate_content(
+                        model=self.model_name,
+                        contents=contents,
+                        config=config,
+                    )
 
                 tools_executed = []
                 function_calls = getattr(response, "function_calls", None) or []
@@ -104,11 +111,18 @@ class StudioOpsCopilot:
 
                     contents.append(types.Content(role="user", parts=function_response_parts))
 
-                    final_response = self.client.models.generate_content(
-                        model=self.model_name,
-                        contents=contents,
-                        config=config,
-                    )
+                    if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
+                        final_response = await self.client.aio.models.generate_content(
+                            model=self.model_name,
+                            contents=contents,
+                            config=config,
+                        )
+                    else:
+                        final_response = self.client.models.generate_content(
+                            model=self.model_name,
+                            contents=contents,
+                            config=config,
+                        )
                     answer_text = final_response.text if hasattr(final_response, "text") and final_response.text else "Telemetry query processed."
                 else:
                     answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
