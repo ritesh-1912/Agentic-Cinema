@@ -68,9 +68,9 @@ class StudioOpsCopilot:
                 for m in self.client.models.list()
             ]
             logger.info(f"Available Google AI models for current key: {available_models}")
-            candidates = [self.model_name, "gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-exp"]
+            candidates = [self.model_name, "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite"]
             for cand in candidates:
-                if cand in available_models:
+                if cand in available_models and cand != "gemini-2.5-flash":
                     self.model_name = cand
                     logger.info(f"Selected verified Google AI model: {self.model_name}")
                     return
@@ -88,12 +88,13 @@ class StudioOpsCopilot:
                 tools=STUDIO_TOOLS,
                 temperature=0.2,
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
             )
 
-            candidates_to_try = [self.model_name, "gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            candidates_to_try = [self.model_name, "gemini-3.6-flash", "gemini-flash-latest", "gemini-3.5-flash", "gemini-2.5-flash-lite"]
             unique_candidates = []
             for c in candidates_to_try:
-                if c and "2.5" not in c and c not in unique_candidates:
+                if c and "2.5-flash" != c and "2.5-pro" != c and c not in unique_candidates:
                     unique_candidates.append(c)
 
             for cand_model in unique_candidates:
@@ -162,37 +163,19 @@ class StudioOpsCopilot:
                     if not answer_text and getattr(response, "text", None):
                         answer_text = response.text
 
-                    # If text is still blank, extract any text parts or prompt for final incident brief
                     if not answer_text or not answer_text.strip():
+                        chunks = []
                         for cand in getattr(response, "candidates", []) or []:
                             if cand.content and cand.content.parts:
                                 for p in cand.content.parts:
-                                    if getattr(p, "text", None):
-                                        answer_text += p.text + "\n"
+                                    if isinstance(getattr(p, "text", None), str) and p.text.strip():
+                                        chunks.append(p.text.strip())
+                        if chunks:
+                            answer_text = "\n\n".join(chunks)
 
-                    if not answer_text or not answer_text.strip():
-                        synth_config = types.GenerateContentConfig(
-                            system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
-                            temperature=0.2,
-                        )
-                        synth_prompt = (
-                            f"Please provide the complete, plain-English Studio Incident Brief "
-                            f"for the crew regarding: '{user_message}' based on the telemetry gathered."
-                        )
-                        contents.append(types.Content(role="user", parts=[types.Part(text=synth_prompt)]))
-                        if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
-                            synth_resp = await self.client.aio.models.generate_content(
-                                model=cand_model,
-                                contents=contents,
-                                config=synth_config,
-                            )
-                        else:
-                            synth_resp = self.client.models.generate_content(
-                                model=cand_model,
-                                contents=contents,
-                                config=synth_config,
-                            )
-                        answer_text = synth_resp.text if hasattr(synth_resp, "text") and synth_resp.text else "Telemetry query processed."
+                    if not answer_text or not answer_text.strip() or answer_text == "Telemetry query processed.":
+                        fallback_brief = await self._orchestrate_tool_response(user_message)
+                        answer_text = fallback_brief.get("answer", "Telemetry query processed.")
 
                     self.model_name = cand_model
                     self.last_gemini_error = None
