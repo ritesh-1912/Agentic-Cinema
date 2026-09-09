@@ -69,9 +69,9 @@ class StudioOpsCopilot:
                 for m in self.client.models.list()
             ]
             logger.info(f"Available Google AI models for current key: {available_models}")
-            candidates = ["gemini-flash-latest", self.model_name, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+            candidates = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-pro-latest"]
             for cand in candidates:
-                if cand in available_models and "2.5" not in cand:
+                if cand in available_models and "2.5" not in cand and cand != "gemini-3.5-flash":
                     self.model_name = cand
                     logger.info(f"Selected verified Google AI model: {self.model_name}")
                     return
@@ -118,10 +118,10 @@ class StudioOpsCopilot:
             thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
 
-        candidates_to_try = ["gemini-flash-latest", self.model_name, "gemini-3.5-flash"]
+        candidates_to_try = [self.model_name, "gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
         unique_candidates = []
         for c in candidates_to_try:
-            if c and "2.5" not in c and c not in unique_candidates:
+            if c and "2.5" not in c and c != "gemini-3.5-flash" and c not in unique_candidates:
                 unique_candidates.append(c)
 
         for cand_model in unique_candidates:

@@ -9,8 +9,8 @@ except ImportError:
 
 class Settings:
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
-    raw_model: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
-    GEMINI_MODEL: str = "gemini-3.5-flash" if "2.5" in raw_model else raw_model
+    raw_model: str = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+    GEMINI_MODEL: str = "gemini-flash-latest" if ("2.5" in raw_model or "3.5-flash" in raw_model) else raw_model
 
     # Grafana Cloud & MCP Configuration
     GRAFANA_URL: Optional[str] = os.getenv("GRAFANA_URL")
