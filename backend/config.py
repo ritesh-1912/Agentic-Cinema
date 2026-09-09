@@ -8,9 +8,9 @@ except ImportError:
     pass
 
 class Settings:
-    # Google AI Configuration
     GEMINI_API_KEY: Optional[str] = os.getenv("GEMINI_API_KEY")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    raw_model: str = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    GEMINI_MODEL: str = "gemini-3.6-flash" if "2.5" in raw_model else raw_model
 
     # Grafana Cloud & MCP Configuration
     GRAFANA_URL: Optional[str] = os.getenv("GRAFANA_URL")

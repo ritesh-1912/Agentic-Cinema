@@ -41,7 +41,8 @@ class StudioOpsCopilot:
     """
 
     def __init__(self):
-        self.model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
+        raw_model = settings.GEMINI_MODEL or "gemini-3.6-flash"
+        self.model_name = "gemini-3.6-flash" if "2.5" in raw_model else raw_model
         self.api_key = settings.GEMINI_API_KEY
         self.client = None
         self.last_gemini_error = None
@@ -49,6 +50,7 @@ class StudioOpsCopilot:
         if GENAI_AVAILABLE and self.api_key:
             try:
                 self.client = genai.Client(api_key=self.api_key)
+                self._init_best_model()
                 logger.info(f"✅ StudioOpsCopilot: Connected to live Google GenAI (Model: {self.model_name})")
             except Exception as e:
                 self.last_gemini_error = f"InitError: {e}"
@@ -56,89 +58,118 @@ class StudioOpsCopilot:
         else:
             logger.info("StudioOpsCopilot: Running in zero-friction evaluation mode. Set GEMINI_API_KEY for live model inference.")
 
+    def _init_best_model(self):
+        """Discovers available models for this API key to avoid 404s on deprecated names."""
+        if not self.client:
+            return
+        try:
+            available_models = [
+                m.name.replace("models/", "")
+                for m in self.client.models.list()
+            ]
+            logger.info(f"Available Google AI models for current key: {available_models}")
+            candidates = [self.model_name, "gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-exp"]
+            for cand in candidates:
+                if cand in available_models:
+                    self.model_name = cand
+                    logger.info(f"Selected verified Google AI model: {self.model_name}")
+                    return
+        except Exception as e:
+            logger.warning(f"Could not query models.list during init: {e}")
+
     async def chat(self, user_message: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         """
         Processes a crew member's query, triggers appropriate Grafana MCP tools,
         and returns a synthesized incident brief.
         """
         if self.client is not None:
-            try:
-                config = types.GenerateContentConfig(
-                    system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
-                    tools=STUDIO_TOOLS,
-                    temperature=0.2,
-                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-                )
+            config = types.GenerateContentConfig(
+                system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
+                tools=STUDIO_TOOLS,
+                temperature=0.2,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            )
 
-                contents = [types.Content(role="user", parts=[types.Part(text=user_message)])]
+            candidates_to_try = [self.model_name, "gemini-3.6-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+            unique_candidates = []
+            for c in candidates_to_try:
+                if c and "2.5" not in c and c not in unique_candidates:
+                    unique_candidates.append(c)
 
-                if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
-                    response = await self.client.aio.models.generate_content(
-                        model=self.model_name,
-                        contents=contents,
-                        config=config,
-                    )
-                else:
-                    response = self.client.models.generate_content(
-                        model=self.model_name,
-                        contents=contents,
-                        config=config,
-                    )
-
-                tools_executed = []
-                function_calls = getattr(response, "function_calls", None) or []
-
-                if function_calls:
-                    contents.append(response.candidates[0].content)
-                    function_response_parts = []
-
-                    for call in function_calls:
-                        tool_fn = TOOL_NAME_TO_FUNCTION.get(call.name)
-                        if tool_fn is None:
-                            continue
-                        call_args = call.args if hasattr(call, "args") and call.args else {}
-                        if isinstance(call_args, dict):
-                            result_str = await tool_fn(**call_args)
-                        else:
-                            result_str = await tool_fn()
-                        tools_executed.append(f"{call.name}({call_args}) [via Grafana MCP]")
-                        logger.info(f"Live Gemini invoked MCP tool: {call.name}({call_args})")
-
-                        function_response_parts.append(
-                            types.Part.from_function_response(
-                                name=call.name,
-                                response={"result": result_str},
-                            )
-                        )
-
-                    contents.append(types.Content(role="user", parts=function_response_parts))
+            for cand_model in unique_candidates:
+                try:
+                    contents = [types.Content(role="user", parts=[types.Part(text=user_message)])]
 
                     if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
-                        final_response = await self.client.aio.models.generate_content(
-                            model=self.model_name,
+                        response = await self.client.aio.models.generate_content(
+                            model=cand_model,
                             contents=contents,
                             config=config,
                         )
                     else:
-                        final_response = self.client.models.generate_content(
-                            model=self.model_name,
+                        response = self.client.models.generate_content(
+                            model=cand_model,
                             contents=contents,
                             config=config,
                         )
-                    answer_text = final_response.text if hasattr(final_response, "text") and final_response.text else "Telemetry query processed."
-                else:
-                    answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
 
-                return {
-                    "answer": answer_text,
-                    "tools_executed": tools_executed or ["grafana_mcp (no tool call needed)"],
-                    "model": self.model_name,
-                    "live_gemini": True,
-                    "is_fallback": False,
-                }
-            except Exception as exc:
-                self.last_gemini_error = f"{type(exc).__name__}: {exc}"
-                logger.warning(f"Live Gemini API invocation error: {exc}. Using internal tool orchestration.")
+                    tools_executed = []
+                    function_calls = getattr(response, "function_calls", None) or []
+
+                    if function_calls:
+                        contents.append(response.candidates[0].content)
+                        function_response_parts = []
+
+                        for call in function_calls:
+                            tool_fn = TOOL_NAME_TO_FUNCTION.get(call.name)
+                            if tool_fn is None:
+                                continue
+                            call_args = call.args if hasattr(call, "args") and call.args else {}
+                            if isinstance(call_args, dict):
+                                result_str = await tool_fn(**call_args)
+                            else:
+                                result_str = await tool_fn()
+                            tools_executed.append(f"{call.name}({call_args}) [via Grafana MCP]")
+                            logger.info(f"Live Gemini invoked MCP tool: {call.name}({call_args})")
+
+                            function_response_parts.append(
+                                types.Part.from_function_response(
+                                    name=call.name,
+                                    response={"result": result_str},
+                                )
+                            )
+
+                        contents.append(types.Content(role="user", parts=function_response_parts))
+
+                        if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
+                            final_response = await self.client.aio.models.generate_content(
+                                model=cand_model,
+                                contents=contents,
+                                config=config,
+                            )
+                        else:
+                            final_response = self.client.models.generate_content(
+                                model=cand_model,
+                                contents=contents,
+                                config=config,
+                            )
+                        answer_text = final_response.text if hasattr(final_response, "text") and final_response.text else "Telemetry query processed."
+                    else:
+                        answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
+
+                    self.model_name = cand_model
+                    self.last_gemini_error = None
+                    return {
+                        "answer": answer_text,
+                        "tools_executed": tools_executed or ["grafana_mcp (no tool call needed)"],
+                        "model": self.model_name,
+                        "live_gemini": True,
+                        "is_fallback": False,
+                    }
+                except Exception as exc:
+                    self.last_gemini_error = f"{type(exc).__name__}: {exc}"
+                    logger.warning(f"Live Gemini API invocation error with {cand_model}: {exc}. Trying next candidate...")
+                    continue
 
         logger.warning("Running in FALLBACK mode — live Gemini unavailable, using scripted orchestration.")
         fallback_result = await self._orchestrate_tool_response(user_message)
@@ -301,7 +332,7 @@ The following production dashboards are active in Grafana Cloud:
             return {
                 "answer": brief,
                 "tools_executed": tools_used,
-                "model": "gemini-2.5-flash (Studio Ops Engine)",
+                "model": f"{self.model_name} (Studio Ops Engine)",
                 "live_gemini": False,
                 "is_fallback": True
             }
@@ -328,7 +359,7 @@ The following production dashboards are active in Grafana Cloud:
             return {
                 "answer": brief,
                 "tools_executed": tools_used,
-                "model": "gemini-2.5-flash (Studio Ops Engine)",
+                "model": f"{self.model_name} (Studio Ops Engine)",
                 "live_gemini": False,
                 "is_fallback": True
             }

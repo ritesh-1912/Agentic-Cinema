@@ -115,6 +115,31 @@ async def get_dashboards():
     """Lists studio dashboards discovered in Grafana."""
     return await grafana_mcp.search_dashboards()
 
+@app.get("/api/models")
+async def get_models():
+    """Lists available Gemini models discovered via the official Google GenAI SDK."""
+    if not copilot_agent.client:
+        return {"models": [], "error": "No Gemini client or API key configured"}
+    try:
+        models_data = []
+        for m in copilot_agent.client.models.list():
+            models_data.append({
+                "name": m.name,
+                "display_name": getattr(m, "display_name", None),
+                "supported_actions": getattr(m, "supported_actions", None),
+            })
+        return {
+            "current_model": copilot_agent.model_name,
+            "total_count": len(models_data),
+            "models": models_data,
+        }
+    except Exception as exc:
+        return {
+            "current_model": copilot_agent.model_name,
+            "models": [],
+            "error": str(exc),
+        }
+
 @app.get("/metrics")
 async def get_metrics():
     """
