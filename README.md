@@ -4,7 +4,7 @@
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-brightgreen.svg)](https://agentic-cinema-3r18.onrender.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](https://opensource.org/licenses/MIT)
-[![Google Cloud AI](https://img.shields.io/badge/Google%20Cloud-Gemini%202.5%20%2F%20ADK-blue.svg)](https://cloud.google.com/vertex-ai)
+[![Google Cloud AI](https://img.shields.io/badge/Google%20AI-Gemini%20Flash%20%2F%20ADK-blue.svg)](https://ai.google.dev)
 [![Grafana MCP](https://img.shields.io/badge/Grafana-MCP%20Server-orange.svg)](https://github.com/grafana/mcp-grafana)
 
 🌐 **Live Application URL:** [https://agentic-cinema-3r18.onrender.com](https://agentic-cinema-3r18.onrender.com)
@@ -31,7 +31,7 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
  │             Studio Ops Copilot Backend (FastAPI)            │
  │                                                             │
  │  ┌───────────────────────────────────────────────────────┐  │
- │  │      Reasoning Layer (Google Gemini 2.5 Flash)        │  │
+ │  │       Reasoning Layer (Google Gemini Flash)           │  │
  │  │         `google-genai` & Google ADK Tool Calling      │  │
  │  └───────────────────────────┬───────────────────────────┘  │
  │                              │ Tool Execution               │

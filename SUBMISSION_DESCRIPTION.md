@@ -56,7 +56,7 @@ We built **Studio Ops Copilot** to eliminate this bottleneck: giving creative an
 ## 🧠 How We Built It
 
 - **AI & Reasoning Layer:**
-  - **Google Gemini 2.5 Flash** as the core cognitive engine.
+  - **Google Gemini Flash (`gemini-3.5-flash` / `gemini-flash-latest`)** as the core cognitive engine.
   - **Google Agent Development Kit (`google-adk`)** and the official **Google GenAI SDK (`google-genai`)** for autonomous tool calling and structured function execution.
   - Custom system persona tailored specifically to cinema technical operations and post-production workflows.
   - **Live Runtime Environment:** The hosted deployment runs live Google Gemini model inference alongside live Grafana Cloud MCP tool executions.
@@ -70,7 +70,7 @@ We built **Studio Ops Copilot** to eliminate this bottleneck: giving creative an
 - **Deployment & Cloud Infrastructure:**
   - Fully containerized with **Docker** bundling the official `grafana/mcp-grafana` binary.
   - Hosted and continuously deployed on **Render.com** (with Google Cloud Run deployment scripts also provided via `cloudbuild.yaml` and `deploy.sh`).
-  - Powered by Google Gemini 2.5 Flash via free API keys from **Google AI Studio**.
+  - Powered by Google Gemini Flash via API keys from **Google AI Studio**.
 
 ---
 
