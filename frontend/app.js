@@ -176,26 +176,39 @@ document.addEventListener("DOMContentLoaded", () => {
     return panel;
   }
 
+  let isSubmitting = false;
+
   // Submit query
   async function submitQuery(queryText) {
+    if (isSubmitting) {
+      console.log("Query already in progress, ignoring duplicate submit");
+      return;
+    }
     if (!queryText || !queryText.trim()) return;
     const cleanQuery = queryText.trim();
 
+    isSubmitting = true;
     appendUserQuery(cleanQuery);
     queryInput.value = "";
     queryInput.disabled = true;
     submitBtn.disabled = true;
+    submitBtn.textContent = "Analyzing...";
+    document.querySelectorAll(".ops-query-btn").forEach(btn => btn.disabled = true);
 
-    // Temporary resolution state
+    // Temporary resolution state with spinner
     const resolvingPanel = document.createElement("div");
-    resolvingPanel.className = "brief-panel";
+    resolvingPanel.className = "brief-panel resolving-pulse";
     resolvingPanel.innerHTML = `
-      <div class="brief-body" style="color: var(--text-muted); font-style: italic;">
+      <div class="brief-body" style="color: var(--text-muted); font-style: italic; display: flex; align-items: center; gap: 10px;">
+        <span class="loading-spinner"></span>
         Querying Grafana MCP server and synthesizing incident brief via Google Gemini...
       </div>
     `;
     briefFeed.appendChild(resolvingPanel);
     briefFeed.scrollTop = briefFeed.scrollHeight;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s client timeout
 
     try {
       const res = await fetch("/api/chat", {
@@ -204,8 +217,10 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({
           message: cleanQuery,
           history: conversationHistory
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (!res.ok) {
         throw new Error(`Server returned HTTP ${res.status}`);
@@ -217,7 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
       appendIncidentBrief(
         data.answer,
         data.tools_executed || [],
-        data.model || "Gemini 2.5 Flash",
+        data.model || "Gemini Flash",
         Boolean(data.is_fallback)
       );
 
@@ -225,23 +240,28 @@ document.addEventListener("DOMContentLoaded", () => {
       conversationHistory.push({ role: "assistant", content: data.answer });
 
     } catch (err) {
+      clearTimeout(timeoutId);
       resolvingPanel.remove();
+      const isAbort = err.name === "AbortError";
       const errPanel = document.createElement("div");
       errPanel.className = "brief-panel";
       errPanel.innerHTML = `
         <div class="brief-panel-header">
-          <span class="status-pill critical">ERROR</span>
-          <span class="brief-title">Query Resolution Failed</span>
+          <span class="status-pill critical">NOTICE</span>
+          <span class="brief-title">${isAbort ? "Query Timeout" : "Query Resolution Notice"}</span>
         </div>
         <div class="brief-body">
-          <p>Failed to resolve telemetry query: ${escapeHtml(err.message)}</p>
-          <p>Verify that the backend service and Grafana MCP transport are running.</p>
+          <p>${isAbort ? "The query took longer than expected to resolve. Please retry in a moment." : escapeHtml(err.message)}</p>
         </div>
       `;
       briefFeed.appendChild(errPanel);
+      briefFeed.scrollTop = briefFeed.scrollHeight;
     } finally {
+      isSubmitting = false;
       queryInput.disabled = false;
       submitBtn.disabled = false;
+      submitBtn.textContent = "Query pipeline";
+      document.querySelectorAll(".ops-query-btn").forEach(btn => btn.disabled = false);
       queryInput.focus();
     }
   }
