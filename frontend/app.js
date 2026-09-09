@@ -208,7 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
     briefFeed.scrollTop = briefFeed.scrollHeight;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s client timeout
+    const timeoutId = setTimeout(() => controller.abort(), 16000); // 16s client timeout
 
     try {
       const res = await fetch("/api/chat", {

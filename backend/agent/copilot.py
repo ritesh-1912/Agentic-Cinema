@@ -85,14 +85,14 @@ class StudioOpsCopilot:
         """
         if self.client is not None:
             try:
-                # Strict 8.0s global timeout for live Gemini to prevent slow UI stalls
+                # 14.0s global timeout for live Gemini to allow 2 multi-turn passes while preventing UI hangs
                 return await asyncio.wait_for(
                     self._live_chat(user_message, conversation_history),
-                    timeout=8.0
+                    timeout=14.0
                 )
             except asyncio.TimeoutError:
-                logger.warning("Live Gemini inference exceeded 8.0s timeout. Returning instant high-fidelity incident brief.")
-                self.last_gemini_error = "TimeoutError: Live Gemini inference exceeded 8.0s limit."
+                logger.warning("Live Gemini inference exceeded 14.0s timeout. Returning instant high-fidelity incident brief.")
+                self.last_gemini_error = "TimeoutError: Live Gemini inference exceeded 14.0s limit."
             except Exception as exc:
                 logger.warning(f"Live Gemini error: {exc}. Returning instant high-fidelity incident brief.")
                 self.last_gemini_error = f"{type(exc).__name__}: {exc}"
@@ -115,7 +115,7 @@ class StudioOpsCopilot:
             thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
 
-        candidates_to_try = ["gemini-flash-latest", self.model_name, "gemini-3.5-flash", "gemini-3.6-flash"]
+        candidates_to_try = ["gemini-flash-latest", self.model_name, "gemini-3.5-flash"]
         unique_candidates = []
         for c in candidates_to_try:
             if c and "2.5" not in c and c not in unique_candidates:
@@ -132,7 +132,7 @@ class StudioOpsCopilot:
                             contents=contents,
                             config=config,
                         ),
-                        timeout=4.0
+                        timeout=6.0
                     )
                 else:
                     response = self.client.models.generate_content(
@@ -190,7 +190,7 @@ class StudioOpsCopilot:
                                 contents=contents,
                                 config=config,
                             ),
-                            timeout=4.0
+                            timeout=6.0
                         )
                     else:
                         response = self.client.models.generate_content(
