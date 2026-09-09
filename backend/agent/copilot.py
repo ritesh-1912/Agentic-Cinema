@@ -41,8 +41,7 @@ class StudioOpsCopilot:
     """
 
     def __init__(self):
-        raw_model = settings.GEMINI_MODEL
-        self.model_name = "gemini-2.0-flash" if "2.5" in raw_model else raw_model
+        self.model_name = settings.GEMINI_MODEL or "gemini-2.5-flash"
         self.api_key = settings.GEMINI_API_KEY
         self.client = None
         self.last_gemini_error = None
