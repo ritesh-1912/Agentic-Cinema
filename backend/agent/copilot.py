@@ -114,9 +114,14 @@ class StudioOpsCopilot:
                         )
 
                     tools_executed = []
-                    function_calls = getattr(response, "function_calls", None) or []
+                    answer_text = ""
 
-                    if function_calls:
+                    for turn in range(5):
+                        function_calls = getattr(response, "function_calls", None) or []
+                        if not function_calls:
+                            answer_text = response.text or ""
+                            break
+
                         contents.append(response.candidates[0].content)
                         function_response_parts = []
 
@@ -130,7 +135,7 @@ class StudioOpsCopilot:
                             else:
                                 result_str = await tool_fn()
                             tools_executed.append(f"{call.name}({call_args}) [via Grafana MCP]")
-                            logger.info(f"Live Gemini invoked MCP tool: {call.name}({call_args})")
+                            logger.info(f"Live Gemini turn {turn+1} invoked MCP tool: {call.name}({call_args})")
 
                             function_response_parts.append(
                                 types.Part.from_function_response(
@@ -142,20 +147,52 @@ class StudioOpsCopilot:
                         contents.append(types.Content(role="user", parts=function_response_parts))
 
                         if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
-                            final_response = await self.client.aio.models.generate_content(
+                            response = await self.client.aio.models.generate_content(
                                 model=cand_model,
                                 contents=contents,
                                 config=config,
                             )
                         else:
-                            final_response = self.client.models.generate_content(
+                            response = self.client.models.generate_content(
                                 model=cand_model,
                                 contents=contents,
                                 config=config,
                             )
-                        answer_text = final_response.text if hasattr(final_response, "text") and final_response.text else "Telemetry query processed."
-                    else:
-                        answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
+
+                    if not answer_text and getattr(response, "text", None):
+                        answer_text = response.text
+
+                    # If text is still blank, extract any text parts or prompt for final incident brief
+                    if not answer_text or not answer_text.strip():
+                        for cand in getattr(response, "candidates", []) or []:
+                            if cand.content and cand.content.parts:
+                                for p in cand.content.parts:
+                                    if getattr(p, "text", None):
+                                        answer_text += p.text + "\n"
+
+                    if not answer_text or not answer_text.strip():
+                        synth_config = types.GenerateContentConfig(
+                            system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
+                            temperature=0.2,
+                        )
+                        synth_prompt = (
+                            f"Please provide the complete, plain-English Studio Incident Brief "
+                            f"for the crew regarding: '{user_message}' based on the telemetry gathered."
+                        )
+                        contents.append(types.Content(role="user", parts=[types.Part(text=synth_prompt)]))
+                        if hasattr(self.client, "aio") and hasattr(self.client.aio, "models"):
+                            synth_resp = await self.client.aio.models.generate_content(
+                                model=cand_model,
+                                contents=contents,
+                                config=synth_config,
+                            )
+                        else:
+                            synth_resp = self.client.models.generate_content(
+                                model=cand_model,
+                                contents=contents,
+                                config=synth_config,
+                            )
+                        answer_text = synth_resp.text if hasattr(synth_resp, "text") and synth_resp.text else "Telemetry query processed."
 
                     self.model_name = cand_model
                     self.last_gemini_error = None
