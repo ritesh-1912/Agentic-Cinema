@@ -77,6 +77,7 @@ class StudioOpsCopilot:
                 tools_executed = []
 
                 if function_calls:
+                    tool_parts = []
                     for call in function_calls:
                         tool_fn = TOOL_NAME_TO_FUNCTION.get(call.name)
                         if tool_fn is not None:
@@ -87,8 +88,33 @@ class StudioOpsCopilot:
                                 tool_result = await tool_fn()
                             tools_executed.append(f"{call.name}({tool_args}) [via Grafana MCP]")
                             logger.info(f"Live Gemini invoked MCP tool: {call.name}({tool_args})")
+                            tool_parts.append(
+                                types.Part.from_function_response(
+                                    name=call.name,
+                                    response={"result": tool_result}
+                                )
+                            )
 
-                answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
+                    # Feed tool results back to Gemini for final incident brief synthesis
+                    if tool_parts and hasattr(response, "candidates") and response.candidates:
+                        contents = [
+                            types.Content(role="user", parts=[types.Part.from_text(text=user_message)]),
+                            response.candidates[0].content,
+                            types.Content(role="tool", parts=tool_parts),
+                        ]
+                        followup = self.client.models.generate_content(
+                            model=self.model_name,
+                            contents=contents,
+                            config=types.GenerateContentConfig(
+                                system_instruction=STUDIO_OPS_SYSTEM_INSTRUCTION,
+                                temperature=0.2,
+                            ),
+                        )
+                        answer_text = followup.text if hasattr(followup, "text") and followup.text else "Telemetry query processed."
+                    else:
+                        answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
+                else:
+                    answer_text = response.text if hasattr(response, "text") and response.text else "Telemetry query processed."
 
                 return {
                     "answer": answer_text,

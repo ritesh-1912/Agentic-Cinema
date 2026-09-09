@@ -56,6 +56,8 @@ Film and television pipelines (VFX GPU render farms, 4K/8K transcode clusters, S
 └───────────────────────────────┘     └─────────────────────────────────┘
 ```
 
+📖 **Detailed Architectural Blueprint & Flowcharts:** See [ARCHITECTURE.md](ARCHITECTURE.md)
+
 ---
 
 ## 🎯 Compliance with Hackathon Hard Constraints
